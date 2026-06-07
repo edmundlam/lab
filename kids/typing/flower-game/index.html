@@ -391,6 +391,37 @@
     100%{transform:translateY(-80px) scale(1.3);opacity:0}
   }
 
+  /* ===== BONUS BANNER ===== */
+  .bonus-banner {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'Fredoka One', cursive;
+    font-size: 2rem;
+    color: #FFD700;
+    text-shadow: 2px 2px 0 #c8a415, 0 0 20px rgba(255,215,0,0.5);
+    z-index: 30;
+    animation: bonusPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), bonusFade 0.5s ease 2.5s forwards;
+    pointer-events: none;
+  }
+  @keyframes bonusPop {
+    from { transform: translateX(-50%) scale(0); opacity: 0; }
+    to { transform: translateX(-50%) scale(1); opacity: 1; }
+  }
+  @keyframes bonusFade {
+    from { opacity: 1; }
+    to { opacity: 0; }
+  }
+
+  .hud-timer-bonus {
+    animation: bonusPulse 0.5s ease infinite alternate;
+  }
+  @keyframes bonusPulse {
+    from { transform: scale(1); }
+    to { transform: scale(1.15); }
+  }
+
   /* progress bar */
   .progress-bar-wrap {
     position: fixed; top: 60px; left: 0; right: 0;
@@ -562,6 +593,8 @@ let state = {
   timerInterval: null,
   gameRunning: false,
   nextId: 0,
+  bonusActive: false,
+  bonusInterval: null,
 };
 
 function loadProgress() {
@@ -878,9 +911,9 @@ function pickFlower(flower) {
   updateProgress();
   launchFlower(flower);
 
-  // check win condition mid-game (15 flowers = 3 stars)
-  if (state.picked >= 15) {
-    setTimeout(endLevel, 900);
+  // start bonus mode at 15 flowers (3-star threshold)
+  if (state.picked >= 15 && !state.bonusActive) {
+    setTimeout(startBonusCountdown, 900);
   }
 }
 
@@ -900,9 +933,57 @@ function shakeAll() {
 // ========================================================
 //  TIMER
 // ========================================================
+// ========================================================
+//  BONUS COUNTDOWN
+// ========================================================
+function startBonusCountdown() {
+  state.bonusActive = true;
+  clearInterval(state.timerInterval);
+
+  let bonusTime = 10;
+  const el = document.getElementById('hud-timer');
+  el.classList.add('hud-timer-bonus');
+
+  showBonusBanner();
+  soundLevelComplete();
+
+  const updateBonusDisplay = () => {
+    el.textContent = `0:${bonusTime.toString().padStart(2, '0')}`;
+    el.className = 'hud-val timer-val hud-timer-bonus';
+  };
+  updateBonusDisplay();
+
+  state.bonusInterval = setInterval(() => {
+    bonusTime--;
+    updateBonusDisplay();
+
+    if (bonusTime <= 3 && bonusTime > 0) {
+      playTone(800, 'sine', 0.1, 0.2);
+    }
+
+    if (bonusTime <= 0) {
+      clearInterval(state.bonusInterval);
+      state.bonusActive = false;
+      el.classList.remove('hud-timer-bonus');
+      endLevel();
+    }
+  }, 1000);
+}
+
+function showBonusBanner() {
+  const banner = document.createElement('div');
+  banner.className = 'bonus-banner';
+  banner.textContent = '🌟 Bonus Time! 🌟';
+  document.body.appendChild(banner);
+  setTimeout(() => banner.remove(), 3000);
+}
+
 function startTimer() {
   state.timer = 300;
+  state.bonusActive = false;
+  clearInterval(state.bonusInterval);
   clearInterval(state.timerInterval);
+  document.getElementById('hud-timer').classList.remove('hud-timer-bonus');
   state.timerInterval = setInterval(() => {
     state.timer--;
     updateTimerDisplay();
@@ -961,6 +1042,8 @@ function startGame(level) {
 
 function restartGame() {
   clearInterval(state.timerInterval);
+  clearInterval(state.bonusInterval);
+  state.bonusActive = false;
   state.gameRunning = false;
   document.getElementById('garden').innerHTML = '';
   startGame(state.currentLevel);
@@ -968,7 +1051,10 @@ function restartGame() {
 
 function endLevel() {
   clearInterval(state.timerInterval);
+  clearInterval(state.bonusInterval);
   state.gameRunning = false;
+  state.bonusActive = false;
+  document.getElementById('hud-timer').classList.remove('hud-timer-bonus');
 
   const picked = state.picked;
   let stars = 0;
@@ -1059,6 +1145,8 @@ function buildLevelGrid() {
 document.getElementById('btn-restart').addEventListener('click', restartGame);
 document.getElementById('btn-menu').addEventListener('click', () => {
   clearInterval(state.timerInterval);
+  clearInterval(state.bonusInterval);
+  state.bonusActive = false;
   state.gameRunning = false;
   buildLevelGrid();
   showScreen('levels');
