@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flower Typing Garden 🌸</title>
+<style>
+  /* ===== FONTS & RESET ===== */
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --sky1: #87CEEB;
+    --sky2: #c9e8f5;
+    --grass: #5cb85c;
+    --grass-dark: #3d8b3d;
+    --sun: #FFD700;
+    --petal-red: #FF6B6B;
+    --petal-blue: #6BA3FF;
+    --petal-purple: #C084FC;
+    --petal-pink: #FF9ECD;
+    --petal-orange: #FF9F43;
+    --center: #FFD700;
+    --stem: #4CAF50;
+    --text-dark: #2d3748;
+    --star-gold: #f6c90e;
+    --star-empty: #d1d5db;
+  }
+
+  body {
+    font-family: 'Nunito', sans-serif;
+    background: var(--sky1);
+    min-height: 100vh;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* ===== SCREENS ===== */
+  .screen { display: none; width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; }
+  .screen.active { display: flex; }
+
+  /* ===== SKY & CLOUDS ===== */
+  .sky-bg {
+    position: fixed; inset: 0;
+    background: linear-gradient(180deg, #87CEEB 0%, #c9e8f5 70%, #b8e4b8 100%);
+    z-index: 0;
+  }
+
+  .cloud {
+    position: absolute;
+    background: white;
+    border-radius: 50px;
+    opacity: 0.85;
+    animation: drift linear infinite;
+  }
+  .cloud::before, .cloud::after {
+    content: ''; position: absolute;
+    background: white; border-radius: 50%;
+  }
+  @keyframes drift { from { transform: translateX(-200px); } to { transform: translateX(110vw); } }
+
+  /* ===== SUN ===== */
+  .sun {
+    position: fixed; top: 30px; right: 60px;
+    width: 70px; height: 70px;
+    background: var(--sun);
+    border-radius: 50%;
+    box-shadow: 0 0 30px #FFD70088, 0 0 60px #FFD70044;
+    z-index: 1;
+    animation: sunPulse 3s ease-in-out infinite;
+  }
+  .sun-ray {
+    position: absolute; top: 50%; left: 50%;
+    width: 6px; height: 20px;
+    background: var(--sun);
+    border-radius: 3px;
+    transform-origin: bottom center;
+    margin-left: -3px; margin-top: -45px;
+  }
+  @keyframes sunPulse { 0%,100%{box-shadow:0 0 30px #FFD70088,0 0 60px #FFD70044} 50%{box-shadow:0 0 40px #FFD700aa,0 0 80px #FFD70066} }
+
+  /* ===== GRASS ===== */
+  .grass-strip {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    height: 90px;
+    background: linear-gradient(180deg, var(--grass) 0%, var(--grass-dark) 100%);
+    z-index: 2;
+    border-top: 4px solid #45a045;
+  }
+  .grass-blade {
+    position: absolute; bottom: 100%;
+    width: 10px; height: 20px;
+    background: var(--grass);
+    border-radius: 50% 50% 0 0;
+    transform-origin: bottom center;
+  }
+
+  /* ===== LEVEL SELECT SCREEN ===== */
+  #screen-levels {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+  }
+
+  .title-banner {
+    font-family: 'Fredoka One', cursive;
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    color: white;
+    text-shadow: 3px 3px 0 #4a9040, 0 0 20px rgba(255,255,255,0.5);
+    margin-bottom: 10px;
+    text-align: center;
+    z-index: 10;
+    position: relative;
+  }
+  .title-sub {
+    font-size: 1.1rem;
+    color: #e8f5e8;
+    margin-bottom: 30px;
+    z-index: 10;
+    position: relative;
+    text-shadow: 1px 1px 0 #4a9040;
+  }
+
+  .levels-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    z-index: 10;
+    position: relative;
+    padding: 0 20px;
+    max-width: 600px;
+  }
+
+  .level-card {
+    background: white;
+    border-radius: 16px;
+    padding: 12px 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 4px 0 #b0b0b0;
+    position: relative;
+    border: 3px solid transparent;
+  }
+  .level-card:hover:not(.locked) {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 0 #b0b0b0;
+  }
+  .level-card:active:not(.locked) { transform: translateY(0); box-shadow: 0 2px 0 #b0b0b0; }
+  .level-card.locked {
+    background: #e5e7eb;
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+  .level-card.completed { border-color: var(--star-gold); background: #fffbeb; }
+  .level-num {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.6rem;
+    color: var(--text-dark);
+    line-height: 1;
+  }
+  .level-card.locked .level-num { color: #9ca3af; }
+  .level-stars { font-size: 1rem; margin-top: 4px; }
+  .star { color: var(--star-empty); }
+  .star.filled { color: var(--star-gold); }
+  .lock-icon { font-size: 1.2rem; margin-top: 4px; }
+
+  /* ===== GAME SCREEN ===== */
+  #screen-game {
+    flex-direction: column;
+    z-index: 5;
+  }
+
+  .hud {
+    position: fixed; top: 0; left: 0; right: 0;
+    height: 60px;
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(8px);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px;
+    z-index: 20;
+    border-bottom: 3px solid rgba(255,255,255,0.6);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  }
+  .hud-item {
+    display: flex; align-items: center; gap: 6px;
+    font-weight: 800; font-size: 1.1rem; color: var(--text-dark);
+  }
+  .hud-icon { font-size: 1.4rem; }
+  .hud-val { font-family: 'Fredoka One', cursive; font-size: 1.4rem; }
+  .timer-val { color: #e53e3e; }
+  .timer-val.ok { color: #2d8a2d; }
+  .flowers-val { color: #7b4fb3; }
+
+  .hud-btn {
+    background: white;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 5px 12px;
+    cursor: pointer;
+    font-family: 'Nunito', sans-serif;
+    font-weight: 700;
+    font-size: 0.9rem;
+    transition: all 0.15s;
+    color: var(--text-dark);
+  }
+  .hud-btn:hover { background: #f7fafc; transform: translateY(-1px); }
+
+  /* ===== GARDEN AREA ===== */
+  .garden {
+    position: fixed; bottom: 90px; left: 0; right: 0;
+    height: calc(100vh - 150px);
+    z-index: 3;
+    pointer-events: none;
+  }
+
+  /* ===== FLOWER ===== */
+  .flower-wrap {
+    position: absolute;
+    bottom: 0;
+    display: flex; flex-direction: column; align-items: center;
+    transition: left 0.3s;
+    pointer-events: none;
+    z-index: 4;
+  }
+  .flower-wrap.entering { animation: flowerGrow 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+  .flower-wrap.shaking { animation: flowerShake 0.4s ease; }
+  .flower-wrap.launching { animation: flowerLaunch 0.8s ease-in forwards; }
+
+  @keyframes flowerGrow {
+    from { transform: scaleY(0); transform-origin: bottom center; }
+    to { transform: scaleY(1); transform-origin: bottom center; }
+  }
+  @keyframes flowerShake {
+    0%,100%{transform:translateX(0)}
+    15%{transform:translateX(-8px)}
+    30%{transform:translateX(8px)}
+    45%{transform:translateX(-6px)}
+    60%{transform:translateX(6px)}
+    75%{transform:translateX(-3px)}
+    90%{transform:translateX(3px)}
+  }
+  @keyframes flowerLaunch {
+    0%{transform:translateY(0) scale(1);opacity:1}
+    30%{transform:translateY(-40px) scale(1.1);opacity:1}
+    100%{transform:translateY(-600px) scale(0.3) rotate(20deg);opacity:0}
+  }
+
+  .flower-label {
+    background: white;
+    border-radius: 10px;
+    padding: 4px 10px;
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.3rem;
+    color: var(--text-dark);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    margin-bottom: 6px;
+    border: 2px solid #e2e8f0;
+    min-width: 40px; text-align: center;
+    position: relative; z-index: 5;
+    transition: all 0.1s;
+  }
+  .flower-label .typed-part { color: #16a34a; }
+  .flower-label .remaining-part { color: var(--text-dark); }
+
+  .flower-label.targeted {
+    border-color: #16a34a;
+    background: #f0fdf4;
+    box-shadow: 0 0 0 3px #bbf7d0, 0 2px 8px rgba(0,0,0,0.15);
+  }
+
+  .flower-svg { filter: drop-shadow(0 4px 6px rgba(0,0,0,0.15)); }
+
+  /* rocket */
+  .rocket {
+    position: absolute;
+    bottom: -20px;
+    font-size: 1.5rem;
+    display: none;
+    animation: rocketFlame 0.1s infinite alternate;
+  }
+  .flower-wrap.launching .rocket { display: block; }
+  @keyframes rocketFlame { from{transform:scale(1)} to{transform:scale(1.2) translateY(2px)} }
+
+  /* ===== LEVEL COMPLETE MODAL ===== */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 100; align-items: center; justify-content: center;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal-box {
+    background: white; border-radius: 24px;
+    padding: 40px; text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    animation: modalPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    max-width: 400px; width: 90%;
+  }
+  @keyframes modalPop { from{transform:scale(0.5);opacity:0} to{transform:scale(1);opacity:1} }
+  .modal-title { font-family: 'Fredoka One', cursive; font-size: 2rem; margin-bottom: 10px; }
+  .modal-stars { font-size: 2.5rem; margin: 15px 0; }
+  .modal-info { color: #64748b; font-size: 1rem; margin-bottom: 20px; }
+  .modal-btn {
+    display: inline-block; padding: 12px 28px;
+    border-radius: 12px; border: none; cursor: pointer;
+    font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 1rem;
+    transition: all 0.15s; margin: 5px;
+  }
+  .btn-primary { background: #16a34a; color: white; box-shadow: 0 4px 0 #0f7a36; }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 0 #0f7a36; }
+  .btn-secondary { background: #e2e8f0; color: var(--text-dark); box-shadow: 0 4px 0 #b0b8c8; }
+  .btn-secondary:hover { transform: translateY(-2px); box-shadow: 0 6px 0 #b0b8c8; }
+
+  /* ===== DIPLOMA SCREEN ===== */
+  #screen-diploma {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+  }
+
+  .diploma {
+    background: linear-gradient(135deg, #fffef0, #fff8e1);
+    border: 8px double #c8a415;
+    border-radius: 20px;
+    padding: 40px 50px;
+    text-align: center;
+    max-width: 550px; width: 90%;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2), inset 0 0 40px rgba(255,215,0,0.1);
+    position: relative; z-index: 10;
+  }
+  .diploma-title {
+    font-family: 'Fredoka One', cursive;
+    font-size: 2.2rem; color: #8b6914;
+    text-shadow: 1px 1px 0 #c8a415;
+    margin-bottom: 10px;
+  }
+  .diploma-subtitle { color: #a07c28; font-size: 1rem; margin-bottom: 20px; }
+  .diploma-name { font-family: 'Fredoka One', cursive; font-size: 2rem; color: #1a5c1a; margin: 15px 0; }
+  .diploma-date { color: #64748b; font-size: 0.9rem; margin-bottom: 20px; }
+  .diploma-bouquet { font-size: 2.5rem; margin: 15px 0; letter-spacing: 4px; }
+
+  .diploma-name-input {
+    font-family: 'Fredoka One', cursive;
+    font-size: 1.5rem; text-align: center;
+    border: none; border-bottom: 3px solid #c8a415;
+    background: transparent; color: #1a5c1a;
+    width: 250px; outline: none; padding: 5px;
+    margin: 15px 0;
+  }
+
+  .btn-print {
+    background: #8b6914; color: white;
+    border: none; border-radius: 12px; cursor: pointer;
+    padding: 12px 30px; font-family: 'Nunito', sans-serif;
+    font-weight: 800; font-size: 1rem;
+    box-shadow: 0 4px 0 #5c4410;
+    margin-top: 15px; transition: all 0.15s;
+  }
+  .btn-print:hover { transform: translateY(-2px); box-shadow: 0 6px 0 #5c4410; }
+
+  .back-link {
+    position: relative; z-index: 10;
+    margin-top: 20px; cursor: pointer;
+    color: white; text-shadow: 1px 1px 0 #4a9040;
+    font-weight: 700; text-decoration: underline;
+  }
+
+  /* ===== PARTICLES ===== */
+  .particle {
+    position: fixed; pointer-events: none; z-index: 50;
+    font-size: 1.2rem;
+    animation: particleFly 1s ease-out forwards;
+  }
+  @keyframes particleFly {
+    0%{transform:translateY(0) rotate(0);opacity:1}
+    100%{transform:translateY(-120px) rotate(360deg);opacity:0}
+  }
+
+  /* ===== SCORE POP ===== */
+  .score-pop {
+    position: fixed; pointer-events: none; z-index: 50;
+    font-family: 'Fredoka One', cursive; font-size: 1.8rem;
+    color: #16a34a; text-shadow: 2px 2px 0 white;
+    animation: scorePop 0.8s ease-out forwards;
+  }
+  @keyframes scorePop {
+    0%{transform:translateY(0) scale(1);opacity:1}
+    100%{transform:translateY(-80px) scale(1.3);opacity:0}
+  }
+
+  /* progress bar */
+  .progress-bar-wrap {
+    position: fixed; top: 60px; left: 0; right: 0;
+    height: 8px; background: rgba(0,0,0,0.1); z-index: 20;
+  }
+  .progress-bar-fill {
+    height: 100%; background: linear-gradient(90deg, #16a34a, #4ade80);
+    transition: width 0.3s; border-radius: 0 4px 4px 0;
+  }
+
+  /* star markers on progress bar */
+  .star-marker {
+    position: absolute; top: -8px;
+    font-size: 1.2rem; transform: translateX(-50%);
+  }
+
+  @media print {
+    body > *:not(#screen-diploma) { display: none !important; }
+    #screen-diploma { display: flex !important; position: static; height: auto; background: white; }
+    .sky-bg, .grass-strip, .back-link, .btn-print { display: none !important; }
+    .diploma { box-shadow: none; border-color: #c8a415; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Sky & Decor (always visible) -->
+<div class="sky-bg"></div>
+<div class="sun" id="sun"></div>
+<div class="grass-strip" id="grass"></div>
+
+<!-- ==================== LEVEL SELECT SCREEN ==================== -->
+<div id="screen-levels" class="screen active">
+  <div class="title-banner">🌸 Flower Typing Garden 🌸</div>
+  <div class="title-sub">Type the letters to pick the flowers!</div>
+  <div class="levels-grid" id="levels-grid"></div>
+</div>
+
+<!-- ==================== GAME SCREEN ==================== -->
+<div id="screen-game" class="screen">
+  <div class="hud">
+    <div class="hud-item">
+      <span class="hud-icon">🌸</span>
+      <span>Level <span class="hud-val" id="hud-level">1</span></span>
+    </div>
+    <div class="hud-item">
+      <span class="hud-icon">⏱️</span>
+      <span class="hud-val timer-val ok" id="hud-timer">5:00</span>
+    </div>
+    <div class="hud-item">
+      <span class="hud-icon">💐</span>
+      <span class="hud-val flowers-val" id="hud-flowers">0</span>
+      <span style="font-size:0.85rem;color:#64748b">/15</span>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="hud-btn" id="btn-sound" title="Toggle sound">🔊</button>
+      <button class="hud-btn" id="btn-restart">↺ Restart</button>
+      <button class="hud-btn" id="btn-menu">🏠 Menu</button>
+    </div>
+  </div>
+  <div class="progress-bar-wrap" id="progress-wrap">
+    <div class="progress-bar-fill" id="progress-fill"></div>
+    <div class="star-marker" style="left:33.3%">⭐</div>
+    <div class="star-marker" style="left:66.6%">⭐</div>
+    <div class="star-marker" style="left:100%">⭐</div>
+  </div>
+  <div class="garden" id="garden"></div>
+</div>
+
+<!-- ==================== LEVEL COMPLETE MODAL ==================== -->
+<div class="modal-overlay" id="modal-complete">
+  <div class="modal-box">
+    <div class="modal-title" id="modal-title">Level Complete! 🎉</div>
+    <div class="modal-stars" id="modal-stars">⭐⭐⭐</div>
+    <div class="modal-info" id="modal-info">You picked 15 flowers!</div>
+    <button class="modal-btn btn-primary" id="btn-next-level">Next Level →</button>
+    <button class="modal-btn btn-secondary" id="btn-replay">Play Again</button>
+    <button class="modal-btn btn-secondary" id="btn-to-menu">Menu</button>
+  </div>
+</div>
+
+<!-- ==================== DIPLOMA SCREEN ==================== -->
+<div id="screen-diploma" class="screen">
+  <div class="diploma">
+    <div class="diploma-title">🌟 Certificate of Excellence 🌟</div>
+    <div class="diploma-subtitle">This diploma is proudly awarded to</div>
+    <input class="diploma-name-input" id="diploma-name" placeholder="Your name here" maxlength="30" />
+    <div class="diploma-subtitle" style="margin-top:5px">for completing all 10 levels of</div>
+    <div class="diploma-title" style="font-size:1.5rem;margin:5px 0">🌸 Flower Typing Garden 🌸</div>
+    <div class="diploma-bouquet">🌺🌷🌼🌸🌻🌹🌾</div>
+    <div class="diploma-date" id="diploma-date"></div>
+    <br>
+    <button class="btn-print" onclick="window.print()">🖨️ Print Diploma</button>
+  </div>
+  <div class="back-link" id="diploma-back">← Back to Menu</div>
+</div>
+
+<script>
+// ========================================================
+//  DATA
+// ========================================================
+const LEVEL_CONFIG = [
+  { level: 1, letters: ['F','G'],                                                                   minLen:1, maxLen:1 },
+  { level: 2, letters: ['F','G','D','K'],                                                           minLen:1, maxLen:2 },
+  { level: 3, letters: ['F','G','D','K','S','L','A',';'],                                           minLen:2, maxLen:2 },
+  { level: 4, letters: ['F','G','D','K','S','L','A',';','T','U'],                                   minLen:2, maxLen:3 },
+  { level: 5, letters: ['F','G','D','K','S','L','A',';','T','U','R','I'],                            minLen:3, maxLen:3 },
+  { level: 6, letters: ['F','G','D','K','S','L','A',';','T','U','R','I','E','H','N','M','J'],        minLen:2, maxLen:4 },
+  { level: 7, words: ['if','it','is','at','as','go','do','he','me','us','in','an','am','on','up','hi','ad','id'] },
+  { level: 8, words: ['flag','glad','fall','skill','dark','list','fast','disk','drift','silk','stir','fill','dust','grill','film','shift','gust','dirt','link','rink','mild','hint','find','risk'] },
+  { level: 9, words: ['finish','signal','island','dinner','mental','finger','friend','single','instal','filter','talent','market','tennis','little','simple','differ','remind','silent','golden','entire'] },
+  { level:10, words: ['finished','different','familiar','training','friendly','standing','festival','faithful','standard','thinking','learning','strength','thousand','national','handling','fighting','lighting','midnight','struggle','straight'] },
+];
+
+const FLOWER_COLORS = ['#FF6B6B','#6BA3FF','#C084FC','#FF9ECD','#FF9F43','#34D399'];
+
+// Allowed letters across all levels (no Q W Y O P Z X C V B)
+// ========================================================
+//  SOUND
+// ========================================================
+let soundEnabled = true;
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx;
+function getCtx() {
+  if (!audioCtx) audioCtx = new AudioCtx();
+  return audioCtx;
+}
+
+function playTone(freq, type='sine', dur=0.15, gain=0.3, delay=0) {
+  if (!soundEnabled) return;
+  try {
+    const ctx = getCtx();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(gain, ctx.currentTime + delay);
+    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + dur);
+    o.start(ctx.currentTime + delay);
+    o.stop(ctx.currentTime + delay + dur);
+  } catch(e) {}
+}
+
+function soundPickFlower() {
+  playTone(523, 'sine', 0.08, 0.3);
+  playTone(659, 'sine', 0.08, 0.25, 0.06);
+  playTone(784, 'sine', 0.12, 0.2, 0.12);
+}
+function soundWrong() {
+  playTone(200, 'sawtooth', 0.15, 0.2);
+}
+function soundLevelComplete() {
+  [523,659,784,1046].forEach((f,i) => playTone(f,'sine',0.2,0.25,i*0.1));
+}
+function soundType() {
+  playTone(440 + Math.random()*200, 'sine', 0.05, 0.1);
+}
+
+// ========================================================
+//  STATE
+// ========================================================
+let state = {
+  currentLevel: 1,
+  flowers: [],       // active flower objects
+  typed: '',         // what the player has typed
+  targetId: null,    // which flower is targeted
+  picked: 0,
+  timer: 300,
+  timerInterval: null,
+  gameRunning: false,
+  nextId: 0,
+};
+
+function loadProgress() {
+  try {
+    return JSON.parse(localStorage.getItem('flowerGame_v1')) || { stars: {}, unlocked: [1] };
+  } catch(e) { return { stars: {}, unlocked: [1] }; }
+}
+function saveProgress(prog) {
+  localStorage.setItem('flowerGame_v1', JSON.stringify(prog));
+}
+
+let progress = loadProgress();
+
+// ========================================================
+//  CLOUDS
+// ========================================================
+function makeClouds() {
+  const count = 5;
+  for (let i = 0; i < count; i++) {
+    const c = document.createElement('div');
+    c.className = 'cloud';
+    const w = 80 + Math.random() * 120;
+    const h = w * 0.4;
+    c.style.cssText = `
+      width:${w}px;height:${h}px;
+      top:${5 + Math.random() * 35}%;
+      left:${Math.random() * 100}vw;
+      animation-duration:${30+Math.random()*40}s;
+      animation-delay:${-Math.random()*40}s;
+    `;
+    // bumps
+    const b1 = document.createElement('div');
+    b1.style.cssText = `width:${h*1.2}px;height:${h*1.2}px;top:${-h*0.4}px;left:${w*0.1}px;position:absolute;background:white;border-radius:50%;`;
+    const b2 = document.createElement('div');
+    b2.style.cssText = `width:${h*0.9}px;height:${h*0.9}px;top:${-h*0.25}px;left:${w*0.45}px;position:absolute;background:white;border-radius:50%;`;
+    c.appendChild(b1); c.appendChild(b2);
+    document.querySelector('.sky-bg').appendChild(c);
+  }
+}
+
+function makeSunRays() {
+  const sun = document.getElementById('sun');
+  for (let i = 0; i < 8; i++) {
+    const r = document.createElement('div');
+    r.className = 'sun-ray';
+    r.style.transform = `rotate(${i*45}deg) translateY(-45px)`;
+    sun.appendChild(r);
+  }
+}
+
+function makeGrassBlades() {
+  const grass = document.getElementById('grass');
+  for (let i = 0; i < 60; i++) {
+    const b = document.createElement('div');
+    b.className = 'grass-blade';
+    const h = 12 + Math.random() * 16;
+    b.style.cssText = `left:${Math.random()*100}%;height:${h}px;transform:rotate(${-15+Math.random()*30}deg);`;
+    grass.appendChild(b);
+  }
+}
+
+// ========================================================
+//  FLOWER SVG
+// ========================================================
+function makeFlowerSVG(color) {
+  const cx = 40, cy = 42, pr = 13, cr = 10;
+  const angles = [0,60,120,180,240,300];
+  let petals = '';
+  angles.forEach(a => {
+    const rad = (a * Math.PI) / 180;
+    const px = cx + Math.cos(rad) * pr;
+    const py = cy + Math.sin(rad) * pr;
+    petals += `<ellipse cx="${px}" cy="${py}" rx="10" ry="7" fill="${color}" transform="rotate(${a},${px},${py})" opacity="0.95"/>`;
+  });
+  return `<svg class="flower-svg" width="80" height="130" viewBox="0 0 80 130" xmlns="http://www.w3.org/2000/svg">
+    <!-- stem -->
+    <path d="M40 55 Q35 85 38 130" stroke="#4CAF50" stroke-width="5" fill="none" stroke-linecap="round"/>
+    <path d="M38 95 Q25 80 18 75" stroke="#4CAF50" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <ellipse cx="15" cy="74" rx="8" ry="5" fill="#66BB6A" transform="rotate(-30,15,74)"/>
+    <!-- petals -->
+    ${petals}
+    <!-- center -->
+    <circle cx="${cx}" cy="${cy}" r="${cr}" fill="#FFD700"/>
+    <circle cx="${cx}" cy="${cy}" r="${cr-3}" fill="#FFC107" opacity="0.6"/>
+  </svg>`;
+}
+
+// ========================================================
+//  GENERATE FLOWER CONTENT
+// ========================================================
+function getActiveLevelLetters() {
+  return LEVEL_CONFIG[state.currentLevel - 1];
+}
+
+function generateFlowerContent(existingStartLetters) {
+  const cfg = getActiveLevelLetters();
+  let attempts = 0;
+  while (attempts < 100) {
+    attempts++;
+    let text;
+    if (cfg.words) {
+      // word levels
+      const available = cfg.words.filter(w => !existingStartLetters.has(w[0].toUpperCase()));
+      if (available.length === 0) break;
+      text = available[Math.floor(Math.random() * available.length)].toUpperCase();
+    } else {
+      // letter levels
+      const len = cfg.minLen + Math.floor(Math.random() * (cfg.maxLen - cfg.minLen + 1));
+      const letters = cfg.letters;
+      // first letter must be unique
+      const availableFirst = letters.filter(l => !existingStartLetters.has(l));
+      if (availableFirst.length === 0) break;
+      const first = availableFirst[Math.floor(Math.random() * availableFirst.length)];
+      let combo = first;
+      for (let i = 1; i < len; i++) {
+        combo += letters[Math.floor(Math.random() * letters.length)];
+      }
+      text = combo;
+    }
+    if (text && !existingStartLetters.has(text[0])) {
+      return text;
+    }
+  }
+  return null;
+}
+
+// ========================================================
+//  FLOWER MANAGEMENT
+// ========================================================
+const SLOTS = [12, 30, 50, 70]; // percent positions
+const TARGET_COUNT = 4;
+
+function spawnFlower(slotIndex) {
+  const existingStarts = new Set(state.flowers.map(f => f.text[0]));
+  const text = generateFlowerContent(existingStarts);
+  if (!text) return;
+
+  const color = FLOWER_COLORS[Math.floor(Math.random() * FLOWER_COLORS.length)];
+  const id = state.nextId++;
+  const flower = { id, text, color, slotIndex, typed: 0 };
+  state.flowers.push(flower);
+  renderFlower(flower, true);
+}
+
+function renderFlower(flower, entering = false) {
+  const garden = document.getElementById('garden');
+  const leftPct = SLOTS[flower.slotIndex];
+
+  const wrap = document.createElement('div');
+  wrap.className = 'flower-wrap' + (entering ? ' entering' : '');
+  wrap.id = `flower-${flower.id}`;
+  wrap.style.left = `${leftPct}%`;
+  wrap.style.transform = 'translateX(-40px)';
+
+  // label
+  const label = document.createElement('div');
+  label.className = 'flower-label' + (flower.id === state.targetId ? ' targeted' : '');
+  label.id = `label-${flower.id}`;
+  updateLabelHTML(label, flower);
+
+  // svg
+  const svgWrap = document.createElement('div');
+  svgWrap.innerHTML = makeFlowerSVG(flower.color);
+
+  // rocket
+  const rocket = document.createElement('div');
+  rocket.className = 'rocket';
+  rocket.innerHTML = '🔥';
+
+  wrap.appendChild(label);
+  wrap.appendChild(svgWrap);
+  wrap.appendChild(rocket);
+  garden.appendChild(wrap);
+}
+
+function updateLabelHTML(labelEl, flower) {
+  const typed = flower.text.slice(0, flower.typed);
+  const remaining = flower.text.slice(flower.typed);
+  labelEl.innerHTML = `<span class="typed-part">${typed}</span><span class="remaining-part">${remaining}</span>`;
+}
+
+function updateAllLabels() {
+  state.flowers.forEach(flower => {
+    const label = document.getElementById(`label-${flower.id}`);
+    if (!label) return;
+    label.className = 'flower-label' + (flower.id === state.targetId ? ' targeted' : '');
+    updateLabelHTML(label, flower);
+  });
+}
+
+function removeFlowerEl(id) {
+  const el = document.getElementById(`flower-${id}`);
+  if (el) el.remove();
+}
+
+function launchFlower(flower) {
+  const el = document.getElementById(`flower-${flower.id}`);
+  if (!el) return;
+  el.classList.add('launching');
+
+  // particles
+  const rect = el.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top;
+  ['🌸','✨','⭐','🌺','💫'].forEach((emoji, i) => {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.textContent = emoji;
+    p.style.left = (cx - 20 + (Math.random()-0.5)*80) + 'px';
+    p.style.top = cy + 'px';
+    p.style.animationDelay = `${i*0.06}s`;
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 1200);
+  });
+
+  // score pop
+  const pop = document.createElement('div');
+  pop.className = 'score-pop';
+  pop.textContent = '+1 🌸';
+  pop.style.left = cx - 30 + 'px';
+  pop.style.top = cy - 10 + 'px';
+  document.body.appendChild(pop);
+  setTimeout(() => pop.remove(), 1000);
+
+  setTimeout(() => {
+    state.flowers = state.flowers.filter(f => f.id !== flower.id);
+    el.remove();
+    if (state.gameRunning) {
+      // find a free slot
+      const usedSlots = new Set(state.flowers.map(f => f.slotIndex));
+      let freeSlot = -1;
+      for (let i = 0; i < SLOTS.length; i++) {
+        if (!usedSlots.has(i)) { freeSlot = i; break; }
+      }
+      if (freeSlot >= 0) spawnFlower(freeSlot);
+    }
+  }, 800);
+}
+
+// ========================================================
+//  TYPING LOGIC
+// ========================================================
+document.addEventListener('keydown', handleKey);
+
+function handleKey(e) {
+  if (!state.gameRunning) return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+  if (e.key === 'Backspace') {
+    if (state.typed.length > 0) {
+      state.typed = state.typed.slice(0, -1);
+      if (state.typed.length === 0) {
+        state.targetId = null;
+        // reset typed on targeted flower
+        state.flowers.forEach(f => { f.typed = 0; });
+      } else if (state.targetId !== null) {
+        const tf = state.flowers.find(f => f.id === state.targetId);
+        if (tf) { tf.typed = Math.max(0, tf.typed - 1); }
+      }
+      updateAllLabels();
+    }
+    return;
+  }
+
+  const key = e.key.toUpperCase();
+  if (key.length !== 1) return;
+
+  // If no target, find matching flower by first remaining letter
+  if (state.targetId === null) {
+    const match = state.flowers.find(f => f.text[0] === key);
+    if (!match) {
+      // wrong key
+      shakeAll();
+      soundWrong();
+      return;
+    }
+    state.targetId = match.id;
+    state.typed = key;
+    match.typed = 1;
+
+    if (match.text.length === 1) {
+      pickFlower(match);
+    }
+    updateAllLabels();
+    soundType();
+    return;
+  }
+
+  // We have a target
+  const tf = state.flowers.find(f => f.id === state.targetId);
+  if (!tf) { state.targetId = null; state.typed = ''; return; }
+
+  const expected = tf.text[tf.typed];
+  if (key === expected) {
+    tf.typed++;
+    state.typed += key;
+    soundType();
+    if (tf.typed >= tf.text.length) {
+      pickFlower(tf);
+    }
+    updateAllLabels();
+  } else {
+    shakeFlower(tf.id);
+    soundWrong();
+  }
+}
+
+function pickFlower(flower) {
+  state.picked++;
+  state.targetId = null;
+  state.typed = '';
+  soundPickFlower();
+  updateHUD();
+  updateProgress();
+  launchFlower(flower);
+
+  // check win condition mid-game (15 flowers = 3 stars)
+  if (state.picked >= 15) {
+    setTimeout(endLevel, 900);
+  }
+}
+
+function shakeFlower(id) {
+  const el = document.getElementById(`flower-${id}`);
+  if (!el) return;
+  el.classList.remove('shaking');
+  void el.offsetWidth; // reflow
+  el.classList.add('shaking');
+  setTimeout(() => el.classList.remove('shaking'), 500);
+}
+
+function shakeAll() {
+  state.flowers.forEach(f => shakeFlower(f.id));
+}
+
+// ========================================================
+//  TIMER
+// ========================================================
+function startTimer() {
+  state.timer = 300;
+  clearInterval(state.timerInterval);
+  state.timerInterval = setInterval(() => {
+    state.timer--;
+    updateTimerDisplay();
+    if (state.timer <= 0) {
+      clearInterval(state.timerInterval);
+      endLevel();
+    }
+  }, 1000);
+}
+
+function updateTimerDisplay() {
+  const m = Math.floor(state.timer / 60);
+  const s = state.timer % 60;
+  const el = document.getElementById('hud-timer');
+  el.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+  el.className = 'hud-val timer-val' + (state.timer < 60 ? '' : ' ok');
+}
+
+// ========================================================
+//  HUD & PROGRESS
+// ========================================================
+function updateHUD() {
+  document.getElementById('hud-level').textContent = state.currentLevel;
+  document.getElementById('hud-flowers').textContent = state.picked;
+}
+
+function updateProgress() {
+  const pct = Math.min((state.picked / 15) * 100, 100);
+  document.getElementById('progress-fill').style.width = pct + '%';
+}
+
+// ========================================================
+//  GAME FLOW
+// ========================================================
+function startGame(level) {
+  state.currentLevel = level;
+  state.flowers = [];
+  state.typed = '';
+  state.targetId = null;
+  state.picked = 0;
+  state.gameRunning = true;
+  state.nextId = 0;
+
+  document.getElementById('garden').innerHTML = '';
+  updateHUD();
+  updateProgress();
+  updateTimerDisplay();
+  showScreen('game');
+
+  // Spawn initial flowers
+  for (let i = 0; i < TARGET_COUNT; i++) {
+    setTimeout(() => spawnFlower(i), i * 120);
+  }
+  startTimer();
+}
+
+function restartGame() {
+  clearInterval(state.timerInterval);
+  state.gameRunning = false;
+  document.getElementById('garden').innerHTML = '';
+  startGame(state.currentLevel);
+}
+
+function endLevel() {
+  clearInterval(state.timerInterval);
+  state.gameRunning = false;
+
+  const picked = state.picked;
+  let stars = 0;
+  if (picked >= 15) stars = 3;
+  else if (picked >= 10) stars = 2;
+  else if (picked >= 5) stars = 1;
+
+  // Save progress
+  const prev = progress.stars[state.currentLevel] || 0;
+  if (stars > prev) {
+    progress.stars[state.currentLevel] = stars;
+  }
+
+  if (stars === 3 && state.currentLevel < 10) {
+    if (!progress.unlocked.includes(state.currentLevel + 1)) {
+      progress.unlocked.push(state.currentLevel + 1);
+    }
+  }
+  saveProgress(progress);
+
+  const starsEarned = progress.stars[state.currentLevel] || 0;
+  const starStr = '⭐'.repeat(starsEarned) + '☆'.repeat(3 - starsEarned);
+
+  document.getElementById('modal-title').textContent = stars === 3 ? 'Amazing! 🎉' : stars >= 1 ? 'Good job! 🌸' : 'Time\'s up! ⏰';
+  document.getElementById('modal-stars').textContent = starStr;
+  document.getElementById('modal-info').textContent = `You picked ${picked} flower${picked !== 1 ? 's' : ''}!` +
+    (stars < 3 ? ` Pick ${stars === 0 ? 5 : stars === 1 ? 10 : 15} to get ${stars + 1} star${stars + 1 !== 1 ? 's' : ''}.` : ' Perfect score!');
+
+  const btnNext = document.getElementById('btn-next-level');
+  if (state.currentLevel >= 10 && stars === 3) {
+    btnNext.textContent = '🎓 Get Diploma!';
+    btnNext.onclick = () => { hideModal(); showDiploma(); };
+  } else if (stars === 3 && state.currentLevel < 10) {
+    btnNext.textContent = `Level ${state.currentLevel + 1} →`;
+    btnNext.style.display = '';
+    btnNext.onclick = () => { hideModal(); startGame(state.currentLevel + 1); };
+  } else {
+    btnNext.style.display = 'none';
+  }
+
+  soundLevelComplete();
+  document.getElementById('modal-complete').classList.add('active');
+}
+
+function hideModal() {
+  document.getElementById('modal-complete').classList.remove('active');
+}
+
+function showDiploma() {
+  const d = new Date();
+  document.getElementById('diploma-date').textContent = d.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+  showScreen('diploma');
+}
+
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(`screen-${name}`).classList.add('active');
+}
+
+// ========================================================
+//  LEVEL GRID
+// ========================================================
+function buildLevelGrid() {
+  const grid = document.getElementById('levels-grid');
+  grid.innerHTML = '';
+  for (let i = 1; i <= 10; i++) {
+    const card = document.createElement('div');
+    const unlocked = progress.unlocked.includes(i);
+    const stars = progress.stars[i] || 0;
+    card.className = 'level-card' + (unlocked ? '' : ' locked') + (stars > 0 ? ' completed' : '');
+
+    const starStr = ['⭐','⭐','⭐'].map((s, idx) => `<span class="star${idx < stars ? ' filled' : ''}">${idx < stars ? '⭐' : '☆'}</span>`).join('');
+
+    card.innerHTML = `
+      <div class="level-num">${i}</div>
+      <div class="level-stars">${unlocked ? starStr : '<div class="lock-icon">🔒</div>'}</div>
+    `;
+    if (unlocked) {
+      card.addEventListener('click', () => startGame(i));
+    }
+    grid.appendChild(card);
+  }
+}
+
+// ========================================================
+//  BUTTON WIRING
+// ========================================================
+document.getElementById('btn-restart').addEventListener('click', restartGame);
+document.getElementById('btn-menu').addEventListener('click', () => {
+  clearInterval(state.timerInterval);
+  state.gameRunning = false;
+  buildLevelGrid();
+  showScreen('levels');
+});
+document.getElementById('btn-replay').addEventListener('click', () => {
+  hideModal();
+  startGame(state.currentLevel);
+});
+document.getElementById('btn-to-menu').addEventListener('click', () => {
+  hideModal();
+  buildLevelGrid();
+  showScreen('levels');
+});
+document.getElementById('btn-sound').addEventListener('click', () => {
+  soundEnabled = !soundEnabled;
+  document.getElementById('btn-sound').textContent = soundEnabled ? '🔊' : '🔇';
+  if (soundEnabled) { try { getCtx().resume(); } catch(e){} }
+});
+document.getElementById('diploma-back').addEventListener('click', () => {
+  buildLevelGrid();
+  showScreen('levels');
+});
+
+// ========================================================
+//  INIT
+// ========================================================
+makeClouds();
+makeSunRays();
+makeGrassBlades();
+buildLevelGrid();
+</script>
+</body>
+</html>
