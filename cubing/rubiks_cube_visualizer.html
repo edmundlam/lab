@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rubik's Cube Visualizer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script defer src="https://umami-taupe-gamma.vercel.app/script.js" data-website-id="a1be0c78-139e-413a-bb3c-e28b3b9dbe5c"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f8f8f6;
+    color: #1a1a1a;
+    padding: 2rem 1rem;
+    min-height: 100vh;
+  }
+
+  h1 {
+    text-align: center;
+    font-size: 1.3rem;
+    font-weight: 500;
+    color: #444;
+    margin-bottom: 2rem;
+    letter-spacing: 0.02em;
+  }
+
+  .cubes-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+    justify-content: center;
+  }
+
+  .rk-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid #e8e8e6;
+    padding: 1.25rem 1.25rem 1rem;
+    min-width: 300px;
+  }
+
+  .rk-canvas-wrap {
+    width: 280px;
+    height: 280px;
+    cursor: grab;
+    user-select: none;
+    touch-action: none;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .rk-canvas-wrap:active { cursor: grabbing; }
+
+  .rk-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: #888;
+    margin-top: 10px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .rk-controls {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-top: 10px;
+  }
+
+  .rk-controls button {
+    font-size: 16px;
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    border: 1px solid #e0e0dc;
+    background: #fafaf8;
+    color: #333;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.12s, border-color 0.12s;
+  }
+
+  .rk-controls button:hover:not(:disabled) {
+    background: #f0f0ee;
+    border-color: #ccc;
+  }
+
+  .rk-controls button:disabled { opacity: 0.28; cursor: default; }
+
+  .rk-controls button.play-btn {
+    background: #1a1a1a;
+    color: #fff;
+    border-color: #1a1a1a;
+    width: 44px;
+    height: 38px;
+    font-size: 14px;
+  }
+
+  .rk-controls button.play-btn:hover:not(:disabled) {
+    background: #333;
+    border-color: #333;
+  }
+
+  .rk-controls .sep {
+    width: 1px;
+    height: 20px;
+    background: #e0e0dc;
+    margin: 0 2px;
+  }
+
+  .rk-speed {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    font-size: 11px;
+    color: #aaa;
+    letter-spacing: 0.04em;
+  }
+
+  .rk-speed input[type=range] {
+    width: 80px;
+    accent-color: #1a1a1a;
+    cursor: pointer;
+  }
+
+  .rk-algo {
+    margin-top: 10px;
+    font-size: 14px;
+    font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+    color: #999;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    justify-content: center;
+    max-width: 290px;
+  }
+
+  .rk-algo span {
+    padding: 2px 6px;
+    border-radius: 5px;
+    transition: all 0.15s;
+  }
+
+  .rk-algo span.done {
+    color: #bbb;
+  }
+
+  .rk-algo span.active {
+    background: #1a1a1a;
+    color: #fff;
+    font-weight: 600;
+  }
+
+  .rk-algo span.pending {
+    color: #555;
+  }
+
+  .custom-panel {
+    max-width: 680px;
+    margin: 2.5rem auto 0;
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid #e8e8e6;
+    padding: 1.5rem 1.75rem 1.25rem;
+  }
+
+  .custom-panel h2 {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #888;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 1rem;
+  }
+
+  .custom-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  @media (max-width: 520px) {
+    .custom-fields { grid-template-columns: 1fr; }
+  }
+
+  .custom-field label {
+    display: block;
+    font-size: 11px;
+    font-weight: 500;
+    color: #aaa;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+  }
+
+  .custom-field input {
+    width: 100%;
+    font-size: 13px;
+    font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid #e0e0dc;
+    background: #fafaf8;
+    color: #1a1a1a;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .custom-field input:focus { border-color: #999; background: #fff; }
+  .custom-field input.error { border-color: #e05555; background: #fff8f8; }
+
+  .custom-hint {
+    font-size: 11px;
+    color: #bbb;
+    margin-top: 4px;
+    font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+  }
+
+  .custom-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 1rem;
+  }
+
+  .custom-apply {
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 20px;
+    border-radius: 8px;
+    border: 1px solid #1a1a1a;
+    background: #1a1a1a;
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.12s;
+  }
+
+  .custom-apply:hover { background: #333; border-color: #333; }
+
+  .custom-error { font-size: 12px; color: #c03030; display: none; }
+  .custom-error.visible { display: block; }
+
+  .examples-label {
+    font-size: 11px;
+    color: #bbb;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-top: 1rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .examples-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .example-chip {
+    font-size: 11px;
+    font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+    padding: 3px 9px;
+    border-radius: 20px;
+    border: 1px solid #e0e0dc;
+    background: #f5f5f3;
+    color: #555;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+    white-space: nowrap;
+  }
+
+  .example-chip:hover { background: #ebebea; border-color: #ccc; }
+
+  .custom-cube-wrap {
+    margin-top: 2rem;
+    display: flex;
+    justify-content: center;
+  }
+</style>
+</head>
+<body>
+
+<h1>Algorithm Visualizer</h1>
+<div class="cubes-row" id="cubes-container"></div>
+
+<div class="custom-panel">
+  <h2>Try your own</h2>
+  <div class="custom-fields">
+    <div class="custom-field">
+      <label>Scramble <span style="font-weight:400;text-transform:none;letter-spacing:0">(starting state)</span></label>
+      <input type="text" id="inp-scramble" placeholder="e.g. R U R' F2 L D'" spellcheck="false" autocomplete="off" />
+      <div class="custom-hint">Leave blank for a solved cube</div>
+    </div>
+    <div class="custom-field">
+      <label>Algorithm <span style="font-weight:400;text-transform:none;letter-spacing:0">(moves to visualize)</span></label>
+      <input type="text" id="inp-algo" placeholder="e.g. R U R' U'" spellcheck="false" autocomplete="off" />
+      <div class="custom-hint">Supports: R U F B L D M E S x y z + ' 2 w</div>
+    </div>
+  </div>
+  <div class="custom-actions">
+    <button class="custom-apply" id="btn-apply">Apply</button>
+    <span class="custom-error" id="custom-error">Please enter at least an algorithm.</span>
+  </div>
+  <div class="examples-label">Examples — click to load</div>
+  <div class="examples-row" id="examples-row"></div>
+</div>
+
+<div class="custom-cube-wrap" id="custom-cube-wrap"></div>
+
+<script>
+const CUBE_CONFIGS = [
+  {
+    label: "Sexy Move",
+    scramble: "",
+    algo: "R U R' U'"
+  },
+  {
+    label: "Sune",
+    scramble: "R U R' U R U2 R'",
+    algo: "R U R' U R U2 R'"
+  },
+  {
+    label: "T-Perm",
+    scramble: "R U R' U' R' F R2 U' R' U' R U R' F'",
+    algo: "R U R' U' R' F R2 U' R' U' R U R' F'"
+  }
+];
+
+const FACE_COLORS = {
+  U: 0xffff00,  // yellow top
+  D: 0xffffff,  // white bottom
+  F: 0x0055cc,  // blue front
+  B: 0x00bb00,  // green back
+  R: 0xff0000,  // red right
+  L: 0xff8800,  // orange left
+};
+const PLASTIC = 0x111111;
+
+function parseAlgo(str) {
+  const tokens = str.trim().match(/[UDFBLRMESxyz]w?['2]?/g) || [];
+  return tokens.map(t => ({
+    token: t,
+    base: t.replace(/[w'2]/g, ''),
+    inv: t.includes("'"),
+    dbl: t.includes("2"),
+    wide: t.includes('w')
+  }));
+}
+
+function buildSolvedState() {
+  const pieces = [];
+  for (let x = -1; x <= 1; x++)
+    for (let y = -1; y <= 1; y++)
+      for (let z = -1; z <= 1; z++) {
+        if (x === 0 && y === 0 && z === 0) continue;
+        pieces.push({
+          pos: new THREE.Vector3(x, y, z),
+          colors: {
+            px: x === 1  ? FACE_COLORS.R : PLASTIC,
+            nx: x === -1 ? FACE_COLORS.L : PLASTIC,
+            py: y === 1  ? FACE_COLORS.U : PLASTIC,
+            ny: y === -1 ? FACE_COLORS.D : PLASTIC,
+            pz: z === 1  ? FACE_COLORS.F : PLASTIC,
+            nz: z === -1 ? FACE_COLORS.B : PLASTIC,
+          }
+        });
+      }
+  return pieces;
+}
+
+function getFilter(move) {
+  const { base, wide } = move;
+  const thr = wide ? 0 : 1;
+  const map = {
+    R: p => p.x >= thr, L: p => p.x <= -thr,
+    U: p => p.y >= thr, D: p => p.y <= -thr,
+    F: p => p.z >= thr, B: p => p.z <= -thr,
+    M: p => Math.abs(p.x) < 0.5,
+    E: p => Math.abs(p.y) < 0.5,
+    S: p => Math.abs(p.z) < 0.5,
+    x: () => true, y: () => true, z: () => true,
+  };
+  return map[base] || (() => false);
+}
+
+function getAxis(base, inv) {
+  const map = {
+    R: new THREE.Vector3(-1,0,0), L: new THREE.Vector3(1,0,0),
+    U: new THREE.Vector3(0,-1,0), D: new THREE.Vector3(0,1,0),
+    F: new THREE.Vector3(0,0,-1), B: new THREE.Vector3(0,0,1),
+    M: new THREE.Vector3(1,0,0), E: new THREE.Vector3(0,1,0),
+    S: new THREE.Vector3(0,0,-1),
+    x: new THREE.Vector3(-1,0,0), y: new THREE.Vector3(0,-1,0), z: new THREE.Vector3(0,0,-1),
+  };
+  const axis = (map[base] || new THREE.Vector3(0,1,0)).clone();
+  if (inv) axis.negate();
+  return axis;
+}
+
+function applyInstant(pieces, move) {
+  const times = move.dbl ? 2 : 1;
+  for (let t = 0; t < times; t++) {
+    const filter = getFilter(move);
+    const axis = getAxis(move.base, move.inv);
+    const mat = new THREE.Matrix4().makeRotationFromQuaternion(
+      new THREE.Quaternion().setFromAxisAngle(axis, Math.PI / 2)
+    );
+    const faceVecs = {
+      px: new THREE.Vector3(1,0,0), nx: new THREE.Vector3(-1,0,0),
+      py: new THREE.Vector3(0,1,0), ny: new THREE.Vector3(0,-1,0),
+      pz: new THREE.Vector3(0,0,1), nz: new THREE.Vector3(0,0,-1),
+    };
+    pieces.forEach(p => {
+      if (!filter(p.pos)) return;
+      p.pos.applyMatrix4(mat);
+      p.pos.x = Math.round(p.pos.x);
+      p.pos.y = Math.round(p.pos.y);
+      p.pos.z = Math.round(p.pos.z);
+      const old = { ...p.colors };
+      const result = {};
+      Object.keys(faceVecs).forEach(k => {
+        const rotated = faceVecs[k].clone().applyMatrix4(mat);
+        const best = Object.keys(faceVecs).reduce((a,b) =>
+          faceVecs[b].dot(rotated) > faceVecs[a].dot(rotated) ? b : a
+        );
+        result[best] = old[k];
+      });
+      p.colors = result;
+    });
+  }
+}
+
+class RubiksCube {
+  constructor(container, config) {
+    this.config = config;
+    this.container = container;
+    this.animating = false;
+    this.moveIndex = -1;
+    this.animSpeed = 300;
+    this.playing = false;
+    this.moves = parseAlgo(config.algo);
+
+    this.basePieces = buildSolvedState();
+    if (config.scramble) parseAlgo(config.scramble).forEach(m => applyInstant(this.basePieces, m));
+    this.currentPieces = this.basePieces.map(p => ({ pos: p.pos.clone(), colors: { ...p.colors } }));
+
+    this.build();
+  }
+
+  build() {
+    const wrap = document.createElement('div');
+    wrap.className = 'rk-wrap';
+
+    const canvasWrap = document.createElement('div');
+    canvasWrap.className = 'rk-canvas-wrap';
+    wrap.appendChild(canvasWrap);
+
+    const label = document.createElement('div');
+    label.className = 'rk-label';
+    label.textContent = this.config.label;
+    wrap.appendChild(label);
+
+    // Controls row
+    const ctrl = document.createElement('div');
+    ctrl.className = 'rk-controls';
+
+    this.btnPrev = this.mkBtn('&#8592;', 'Previous move');
+    this.btnPlay = this.mkBtn('&#9654;', 'Play / Pause');
+    this.btnPlay.className += ' play-btn';
+    this.btnNext = this.mkBtn('&#8594;', 'Next move');
+
+    const sep = document.createElement('div');
+    sep.className = 'sep';
+
+    this.btnReset = this.mkBtn('&#8635;', 'Reset cube');
+    this.btnView  = this.mkBtn('&#9696;', 'Reset view');
+
+    ctrl.append(this.btnPrev, this.btnPlay, this.btnNext, sep, this.btnReset, this.btnView);
+    wrap.appendChild(ctrl);
+
+    // Speed
+    const speedWrap = document.createElement('div');
+    speedWrap.className = 'rk-speed';
+    speedWrap.innerHTML = 'SPEED';
+    const speedSlider = document.createElement('input');
+    speedSlider.type = 'range'; speedSlider.min = 60; speedSlider.max = 700;
+    speedSlider.value = 300; speedSlider.step = 10;
+    speedSlider.oninput = () => { this.animSpeed = parseInt(speedSlider.value); };
+    speedWrap.appendChild(speedSlider);
+    wrap.appendChild(speedWrap);
+
+    // Algo display
+    this.algoDiv = document.createElement('div');
+    this.algoDiv.className = 'rk-algo';
+    wrap.appendChild(this.algoDiv);
+
+    this.container.appendChild(wrap);
+
+    // Three.js
+    this.scene = new THREE.Scene();
+    this.camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+    this.camera.position.set(4.5, 4, 5);
+    this.camera.lookAt(0, 0, 0);
+    this.defaultCamPos = this.camera.position.clone();
+
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    this.renderer.setSize(280, 280);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    canvasWrap.appendChild(this.renderer.domElement);
+
+    this.scene.add(new THREE.AmbientLight(0xffffff, 0.95));
+    const dir = new THREE.DirectionalLight(0xffffff, 0.1);
+    dir.position.set(5, 8, 6);
+    this.scene.add(dir);
+
+    this.cubieGroup = new THREE.Group();
+    this.scene.add(this.cubieGroup);
+    this.meshes = [];
+    this.rebuildMeshes();
+
+    this.setupOrbit(canvasWrap);
+    this.setupButtons();
+    this.updateAlgoDisplay();
+    this.updateButtons();
+    this.renderLoop();
+  }
+
+  mkBtn(html, title) {
+    const b = document.createElement('button');
+    b.innerHTML = html;
+    b.title = title;
+    return b;
+  }
+
+  rebuildMeshes() {
+    this.meshes.forEach(m => this.cubieGroup.remove(m));
+    this.meshes = [];
+
+    // Sticker size and rounding params
+    const CUBIE = 0.96;       // cubie body size — tight gap between pieces
+    const STICKER = 0.78;     // sticker tile size — inset from cubie edge
+    const STICKER_R = 0.10;   // corner radius for sticker roundness
+    const STICKER_SEGS = 4;   // segments per corner arc
+
+    // Build a rounded-rect sticker shape using THREE.Shape
+    const makeStickerGeo = () => {
+      const s = STICKER / 2;
+      const r = STICKER_R;
+      const shape = new THREE.Shape();
+      shape.moveTo(-s + r, -s);
+      shape.lineTo( s - r, -s);
+      shape.quadraticCurveTo( s, -s,  s, -s + r);
+      shape.lineTo( s,  s - r);
+      shape.quadraticCurveTo( s,  s,  s - r,  s);
+      shape.lineTo(-s + r,  s);
+      shape.quadraticCurveTo(-s,  s, -s,  s - r);
+      shape.lineTo(-s, -s + r);
+      shape.quadraticCurveTo(-s, -s, -s + r, -s);
+      return new THREE.ShapeGeometry(shape, STICKER_SEGS);
+    };
+
+    const faceOffsets = [
+      { key: 'px', pos: [CUBIE/2 + 0.001, 0, 0], rot: [0,  Math.PI/2, 0] },
+      { key: 'nx', pos: [-CUBIE/2 - 0.001, 0, 0], rot: [0, -Math.PI/2, 0] },
+      { key: 'py', pos: [0,  CUBIE/2 + 0.001, 0], rot: [-Math.PI/2, 0, 0] },
+      { key: 'ny', pos: [0, -CUBIE/2 - 0.001, 0], rot: [  Math.PI/2, 0, 0] },
+      { key: 'pz', pos: [0, 0,  CUBIE/2 + 0.001], rot: [0, 0, 0] },
+      { key: 'nz', pos: [0, 0, -CUBIE/2 - 0.001], rot: [0, Math.PI, 0] },
+    ];
+
+    this.currentPieces.forEach((p, i) => {
+      // Plastic body
+      const bodyGeo = new THREE.BoxGeometry(CUBIE, CUBIE, CUBIE);
+      const bodyMat = new THREE.MeshLambertMaterial({ color: PLASTIC });
+      const body = new THREE.Mesh(bodyGeo, bodyMat);
+      body.position.copy(p.pos);
+      body.userData.pieceIndex = i;
+      this.cubieGroup.add(body);
+      this.meshes.push(body);
+
+      // Stickers — only on colored faces
+      faceOffsets.forEach(f => {
+        const color = p.colors[f.key];
+        if (color === PLASTIC) return;
+        const geo = makeStickerGeo();
+        const mat = new THREE.MeshLambertMaterial({ color, side: THREE.FrontSide });
+        const sticker = new THREE.Mesh(geo, mat);
+        sticker.position.set(...f.pos);
+        sticker.rotation.set(...f.rot);
+        body.add(sticker);
+      });
+    });
+  }
+
+  updateAlgoDisplay() {
+    this.algoDiv.innerHTML = '';
+    this.moves.forEach((m, i) => {
+      const span = document.createElement('span');
+      span.textContent = m.token;
+      if (i < this.moveIndex) span.className = 'done';
+      else if (i === this.moveIndex) span.className = 'active';
+      else span.className = 'pending';
+      this.algoDiv.appendChild(span);
+    });
+  }
+
+  updateButtons() {
+    const busy = this.animating;
+    this.btnPrev.disabled  = this.moveIndex < 0 || busy;
+    this.btnNext.disabled  = this.moveIndex >= this.moves.length - 1 || busy;
+    this.btnReset.disabled = this.moveIndex < 0 || busy;
+    this.btnPlay.disabled  = busy && !this.playing;
+    // Update play button icon
+    this.btnPlay.innerHTML = this.playing ? '&#9646;&#9646;' : '&#9654;';
+  }
+
+  setupButtons() {
+    this.btnNext.onclick  = () => { this.stopPlay(); this.stepForward(); };
+    this.btnPrev.onclick  = () => { this.stopPlay(); this.stepBackward(); };
+    this.btnReset.onclick = () => { this.stopPlay(); this.resetCube(); };
+    this.btnView.onclick  = () => {
+      this.camera.position.copy(this.defaultCamPos);
+      this.camera.lookAt(0, 0, 0);
+    };
+    this.btnPlay.onclick = () => {
+      if (this.playing) { this.stopPlay(); }
+      else { this.startPlay(); }
+    };
+  }
+
+  startPlay() {
+    if (this.moveIndex >= this.moves.length - 1) return;
+    this.playing = true;
+    this.updateButtons();
+    this.playNext();
+  }
+
+  stopPlay() {
+    this.playing = false;
+    this.updateButtons();
+  }
+
+  playNext() {
+    if (!this.playing || this.moveIndex >= this.moves.length - 1) {
+      this.playing = false;
+      this.updateButtons();
+      return;
+    }
+    this.stepForward(() => {
+      if (this.playing) {
+        setTimeout(() => this.playNext(), 60);
+      }
+    });
+  }
+
+  stepForward(onDone) {
+    if (this.animating || this.moveIndex >= this.moves.length - 1) return;
+    this.moveIndex++;
+    const move = this.moves[this.moveIndex];
+    this.updateAlgoDisplay();
+    this.animateMove(move, false, () => {
+      applyInstant(this.currentPieces, move);
+      this.rebuildMeshes();
+      this.updateButtons();
+      if (onDone) onDone();
+    });
+  }
+
+  stepBackward() {
+    if (this.animating || this.moveIndex < 0) return;
+    const move = this.moves[this.moveIndex];
+    const inv = { ...move, inv: !move.inv };
+    this.animateMove(inv, true, () => {
+      applyInstant(this.currentPieces, inv);
+      this.rebuildMeshes();
+      this.moveIndex--;
+      this.updateAlgoDisplay();
+      this.updateButtons();
+    });
+  }
+
+  resetCube() {
+    if (this.animating || this.moveIndex < 0) return;
+    const doNext = () => {
+      if (this.moveIndex < 0) { this.updateAlgoDisplay(); this.updateButtons(); return; }
+      const move = this.moves[this.moveIndex];
+      const inv = { ...move, inv: !move.inv };
+      this.animateMove(inv, true, () => {
+        applyInstant(this.currentPieces, inv);
+        this.rebuildMeshes();
+        this.moveIndex--;
+        this.updateAlgoDisplay();
+        doNext();
+      });
+    };
+    doNext();
+  }
+
+  animateMove(move, isInv, onDone) {
+    this.animating = true;
+    this.updateButtons();
+
+    const filter = getFilter(move);
+    const axis = getAxis(move.base, move.inv);
+    const totalAngle = (Math.PI / 2) * (move.dbl ? 2 : 1);
+    const affected = this.meshes.filter(m => filter(this.currentPieces[m.userData.pieceIndex].pos));
+
+    const pivot = new THREE.Group();
+    this.scene.add(pivot);
+    affected.forEach(m => { this.cubieGroup.remove(m); pivot.add(m); });
+
+    const duration = this.animSpeed * (move.dbl ? 1.5 : 1);
+    const q0 = new THREE.Quaternion();
+    const q1 = new THREE.Quaternion().setFromAxisAngle(axis, totalAngle);
+    const start = performance.now();
+
+    const tick = (now) => {
+      const t = Math.min((now - start) / duration, 1);
+      const e = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+      pivot.quaternion.slerpQuaternions(q0, q1, e);
+      if (t < 1) {
+        requestAnimationFrame(tick);
+      } else {
+        pivot.quaternion.copy(q1);
+        affected.forEach(m => { pivot.remove(m); this.cubieGroup.add(m); });
+        this.scene.remove(pivot);
+        this.animating = false;
+        onDone();
+      }
+    };
+    requestAnimationFrame(tick);
+  }
+
+  setupOrbit(el) {
+    let dragging = false, lastX = 0, lastY = 0;
+
+    const start = (x, y) => { dragging = true; lastX = x; lastY = y; };
+    const move  = (x, y) => {
+      if (!dragging) return;
+      const dx = (x - lastX) * 0.01;
+      const dy = (y - lastY) * 0.01;
+      lastX = x; lastY = y;
+
+      // Horizontal drag: orbit around world Y axis
+      const spherical = new THREE.Spherical().setFromVector3(this.camera.position);
+      spherical.theta -= dx;
+
+      // Vertical drag: orbit phi — invert sign so drag up = tilt up
+      spherical.phi = Math.max(0.15, Math.min(Math.PI - 0.15, spherical.phi - dy));
+
+      this.camera.position.setFromSpherical(spherical);
+      this.camera.lookAt(0, 0, 0);
+    };
+    const end = () => { dragging = false; };
+
+    el.addEventListener('mousedown',  e => start(e.clientX, e.clientY));
+    window.addEventListener('mousemove',  e => move(e.clientX, e.clientY));
+    window.addEventListener('mouseup',    end);
+
+    el.addEventListener('touchstart',  e => { const t = e.touches[0]; start(t.clientX, t.clientY); }, { passive: true });
+    window.addEventListener('touchmove',  e => { if (!dragging) return; const t = e.touches[0]; move(t.clientX, t.clientY); }, { passive: true });
+    window.addEventListener('touchend',   end);
+  }
+
+  renderLoop() {
+    requestAnimationFrame(() => this.renderLoop());
+    this.renderer.render(this.scene, this.camera);
+  }
+}
+
+const EXAMPLES = [
+  { label: "Sexy Move",      scramble: "",                                            algo: "R U R' U'" },
+  { label: "J-Perm",         scramble: "R U R' F' R U R' U' R' F R2 U' R'",          algo: "R U R' F' R U R' U' R' F R2 U' R'" },
+  { label: "Y-Perm",         scramble: "F R U' R' U' R U R' F' R U R' U' R' F R F'", algo: "F R U' R' U' R U R' F' R U R' U' R' F R F'" },
+  { label: "OLL dot",        scramble: "F R U R' U' R U R' U' F'",                   algo: "F R U R' U' R U R' U' F'" },
+  { label: "Sledgehammer",   scramble: "",                                            algo: "R' F R F'" },
+  { label: "Wide R",         scramble: "",                                            algo: "Rw U M' U' Rw'" },
+  { label: "Cube rotation",  scramble: "R U R' U'",                                   algo: "y R U R' U' y'" },
+];
+
+document.addEventListener('DOMContentLoaded', () => {
+  const container = document.getElementById('cubes-container');
+  CUBE_CONFIGS.forEach(cfg => {
+    const wrap = document.createElement('div');
+    container.appendChild(wrap);
+    new RubiksCube(wrap, cfg);
+  });
+
+  let customInstance = null;
+
+  const inpScramble = document.getElementById('inp-scramble');
+  const inpAlgo     = document.getElementById('inp-algo');
+  const btnApply    = document.getElementById('btn-apply');
+  const errMsg      = document.getElementById('custom-error');
+  const cubeWrap    = document.getElementById('custom-cube-wrap');
+  const examplesRow = document.getElementById('examples-row');
+
+  const applyCustom = () => {
+    const scramble = inpScramble.value.trim();
+    const algo     = inpAlgo.value.trim();
+    errMsg.classList.remove('visible');
+    inpAlgo.classList.remove('error');
+
+    if (!algo) {
+      errMsg.textContent = 'Please enter at least an algorithm.';
+      errMsg.classList.add('visible');
+      inpAlgo.classList.add('error');
+      return;
+    }
+    const parsed = parseAlgo(algo);
+    if (parsed.length === 0) {
+      errMsg.textContent = 'Could not parse any moves — check your notation.';
+      errMsg.classList.add('visible');
+      inpAlgo.classList.add('error');
+      return;
+    }
+    if (customInstance) {
+      customInstance.renderer.dispose();
+      cubeWrap.innerHTML = '';
+      customInstance = null;
+    }
+    const wrap = document.createElement('div');
+    cubeWrap.appendChild(wrap);
+    customInstance = new RubiksCube(wrap, { label: 'Custom', scramble, algo });
+  };
+
+  const loadConfig = (cfg) => {
+    inpScramble.value = cfg.scramble || '';
+    inpAlgo.value     = cfg.algo || '';
+    applyCustom();
+  };
+
+  EXAMPLES.forEach(ex => {
+    const chip = document.createElement('button');
+    chip.className = 'example-chip';
+    chip.textContent = ex.label;
+    chip.onclick = () => loadConfig(ex);
+    examplesRow.appendChild(chip);
+  });
+
+  btnApply.onclick = applyCustom;
+  [inpScramble, inpAlgo].forEach(el => {
+    el.addEventListener('keydown', e => { if (e.key === 'Enter') applyCustom(); });
+  });
+
+  loadConfig(EXAMPLES[0]);
+});
+</script>
+</body>
+</html>
