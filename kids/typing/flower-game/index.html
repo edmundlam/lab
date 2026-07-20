@@ -596,6 +596,9 @@ let state = {
   nextId: 0,
   bonusActive: false,
   bonusInterval: null,
+  levelEnding: false,
+  bonusTime: 0,      // track bonus countdown time
+  bonusTriggered: false, // prevent multiple bonus triggers
 };
 
 function loadProgress() {
@@ -912,8 +915,9 @@ function pickFlower(flower) {
   updateProgress();
   launchFlower(flower);
 
-  // start bonus mode at 15 flowers (3-star threshold)
-  if (state.picked >= 15 && !state.bonusActive) {
+  // start bonus mode at 15 flowers (3-star threshold) - only once!
+  if (state.picked >= 15 && !state.bonusTriggered && !state.levelEnding) {
+    state.bonusTriggered = true;
     setTimeout(startBonusCountdown, 900);
   }
 }
@@ -938,10 +942,14 @@ function shakeAll() {
 //  BONUS COUNTDOWN
 // ========================================================
 function startBonusCountdown() {
-  state.bonusActive = true;
-  clearInterval(state.timerInterval);
+  // Don't start if level is already ending
+  if (state.levelEnding) return;
 
-  let bonusTime = 10;
+  state.bonusActive = true;
+  state.bonusTime = 10;
+  clearInterval(state.timerInterval);
+  state.timerInterval = null;
+
   const el = document.getElementById('hud-timer');
   el.classList.add('hud-timer-bonus');
 
@@ -949,24 +957,26 @@ function startBonusCountdown() {
   soundLevelComplete();
 
   const updateBonusDisplay = () => {
-    el.textContent = `0:${bonusTime.toString().padStart(2, '0')}`;
+    el.textContent = `0:${state.bonusTime.toString().padStart(2, '0')}`;
     el.className = 'hud-val timer-val hud-timer-bonus';
   };
   updateBonusDisplay();
 
   state.bonusInterval = setInterval(() => {
-    bonusTime--;
+    state.bonusTime--;
     updateBonusDisplay();
 
-    if (bonusTime <= 3 && bonusTime > 0) {
+    if (state.bonusTime <= 3 && state.bonusTime > 0) {
       playTone(800, 'sine', 0.1, 0.2);
     }
 
-    if (bonusTime <= 0) {
+    if (state.bonusTime <= 0) {
       clearInterval(state.bonusInterval);
       state.bonusActive = false;
       el.classList.remove('hud-timer-bonus');
-      endLevel();
+      if (!state.levelEnding) {
+        endLevel();
+      }
     }
   }, 1000);
 }
@@ -982,13 +992,15 @@ function showBonusBanner() {
 function startTimer() {
   state.timer = 300;
   state.bonusActive = false;
+  state.bonusTriggered = false;
+  state.bonusTime = 0;
   clearInterval(state.bonusInterval);
   clearInterval(state.timerInterval);
   document.getElementById('hud-timer').classList.remove('hud-timer-bonus');
   state.timerInterval = setInterval(() => {
     state.timer--;
     updateTimerDisplay();
-    if (state.timer <= 0) {
+    if (state.timer <= 0 && !state.levelEnding) {
       clearInterval(state.timerInterval);
       endLevel();
     }
@@ -1027,6 +1039,10 @@ function startGame(level) {
   state.picked = 0;
   state.gameRunning = true;
   state.nextId = 0;
+  state.bonusActive = false;
+  state.levelEnding = false;
+  state.bonusTriggered = false;
+  state.bonusTime = 0;
 
   document.getElementById('garden').innerHTML = '';
   updateHUD();
@@ -1045,16 +1061,24 @@ function restartGame() {
   clearInterval(state.timerInterval);
   clearInterval(state.bonusInterval);
   state.bonusActive = false;
+  state.bonusTriggered = false;
   state.gameRunning = false;
+  state.levelEnding = false;
   document.getElementById('garden').innerHTML = '';
   startGame(state.currentLevel);
 }
 
 function endLevel() {
+  // Prevent multiple calls to endLevel
+  if (state.levelEnding) return;
+  state.levelEnding = true;
+
   clearInterval(state.timerInterval);
   clearInterval(state.bonusInterval);
   state.gameRunning = false;
   state.bonusActive = false;
+  state.bonusTriggered = false;
+  state.bonusTime = 0;
   document.getElementById('hud-timer').classList.remove('hud-timer-bonus');
 
   const picked = state.picked;
@@ -1148,7 +1172,9 @@ document.getElementById('btn-menu').addEventListener('click', () => {
   clearInterval(state.timerInterval);
   clearInterval(state.bonusInterval);
   state.bonusActive = false;
+  state.bonusTriggered = false;
   state.gameRunning = false;
+  state.levelEnding = false;
   buildLevelGrid();
   showScreen('levels');
 });
