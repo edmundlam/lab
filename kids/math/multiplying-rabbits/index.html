@@ -51,11 +51,10 @@
     position: relative;
   }
 
-  /* ---------- Mute button ---------- */
-  .mute-btn {
+  /* ---------- Mute/Menu buttons ---------- */
+  .menu-btn, .mute-btn {
     position: absolute;
     top: 12px;
-    right: 12px;
     width: 48px;
     height: 48px;
     border-radius: 50%;
@@ -64,7 +63,9 @@
     box-shadow: 0 3px 0 rgba(0,0,0,0.15);
     z-index: 20;
   }
-  .mute-btn:active { transform: translateY(2px); box-shadow: none; }
+  .menu-btn { left: 12px; }
+  .mute-btn { right: 12px; }
+  .menu-btn:active, .mute-btn:active { transform: translateY(2px); box-shadow: none; }
 
   /* ---------- Start screen ---------- */
   #start-screen h1 {
@@ -427,6 +428,7 @@
 
   <!-- ========== Game Screen ========== -->
   <div id="game-screen" class="screen hidden">
+    <button id="menu-btn-game" class="menu-btn" title="Back to Menu">🏠</button>
     <button id="mute-btn-game" class="mute-btn">🔊</button>
     <div id="hud">
       <span id="timer">10:00</span>
@@ -1267,6 +1269,7 @@
     renderHeatmap();
   });
   document.getElementById('back-from-heatmap').addEventListener('click', () => showScreen('start-screen'));
+  document.getElementById('menu-btn-game').addEventListener('click', () => showScreen('start-screen'));
 
   document.getElementById('diploma-name').addEventListener('input', (e) => {
     state.playerName = e.target.value;
