@@ -18,6 +18,7 @@
     --accent-dark: #e8703f;
     --ink: #3a2e1f;
     --card-bg: #fffaf0;
+    --play-width: 640px;
   }
 
   * { box-sizing: border-box; }
@@ -122,7 +123,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    max-width: 640px;
+    max-width: var(--play-width);
     margin: 0 auto;
     width: 100%;
     padding: 8px 8px 0;
@@ -131,7 +132,7 @@
   }
   #timer.low { color: #d33; }
   #meadow-wrap {
-    max-width: 640px;
+    max-width: var(--play-width);
     width: 100%;
     margin: 8px auto;
     border-radius: 20px;
@@ -147,7 +148,7 @@
   }
 
   #answer-row {
-    max-width: 640px;
+    max-width: var(--play-width);
     width: 100%;
     margin: 4px auto 10px;
     display: flex;
@@ -279,10 +280,15 @@
   /* ---------- Responsive ---------- */
   @media (min-width: 600px) and (max-width: 900px) {
     #level-grid { max-width: 560px; }
+    :root { --play-width: 760px; }
   }
   @media (min-width: 900px) {
     #level-grid { max-width: 600px; }
-    #numpad { max-width: 360px; }
+    #numpad { max-width: 420px; }
+    :root { --play-width: 1000px; }
+  }
+  @media (min-width: 1300px) {
+    :root { --play-width: 1200px; }
   }
 </style>
 </head>
@@ -306,7 +312,7 @@
       <span id="score">Poops: 0/10</span>
     </div>
     <div id="meadow-wrap">
-      <canvas id="meadow-canvas" width="640" height="360"></canvas>
+      <canvas id="meadow-canvas" width="960" height="540"></canvas>
     </div>
     <div id="answer-row">
       <input id="answer-display" readonly value="">
@@ -497,6 +503,7 @@
   const canvas = document.getElementById('meadow-canvas');
   const ctx2d = canvas.getContext('2d');
   const CW = canvas.width, CH = canvas.height;
+  const SCALE = CW / 640; // fixed-pixel sizes below were tuned at 640px wide; scale them to match
 
   // Static-ish scene elements (flowers), regenerated per level for variety
   let flowers = [];
@@ -523,7 +530,7 @@
     // sun
     ctx2d.fillStyle = '#fff6c9';
     ctx2d.beginPath();
-    ctx2d.arc(CW - 70, 60, 34, 0, Math.PI * 2);
+    ctx2d.arc(CW - 70 * SCALE, 60 * SCALE, 34 * SCALE, 0, Math.PI * 2);
     ctx2d.fill();
 
     // grass
@@ -539,34 +546,80 @@
       for (let a = 0; a < 5; a++) {
         const ang = (a / 5) * Math.PI * 2;
         ctx2d.beginPath();
-        ctx2d.arc(f.x + Math.cos(ang) * 5, f.y + Math.sin(ang) * 5, 4, 0, Math.PI * 2);
+        ctx2d.arc(f.x + Math.cos(ang) * 5 * SCALE, f.y + Math.sin(ang) * 5 * SCALE, 4 * SCALE, 0, Math.PI * 2);
         ctx2d.fill();
       }
       ctx2d.fillStyle = '#ffd166';
       ctx2d.beginPath();
-      ctx2d.arc(f.x, f.y, 3, 0, Math.PI * 2);
+      ctx2d.arc(f.x, f.y, 3 * SCALE, 0, Math.PI * 2);
       ctx2d.fill();
     });
   }
 
   function drawBunny(t) {
     const bx = CW * 0.2, by = CH * 0.55;
-    const bounce = Math.sin(t / 400) * 5;
+    const bounce = Math.sin(t / 400) * 5 * SCALE;
     ctx2d.save();
     ctx2d.translate(bx, by + bounce);
-    ctx2d.font = '72px serif';
+    ctx2d.font = (72 * SCALE) + 'px serif';
     ctx2d.textAlign = 'center';
     ctx2d.textBaseline = 'middle';
     ctx2d.fillText('🐰', 0, 0);
-    // table number badge
-    ctx2d.fillStyle = 'var-accent';
-    ctx2d.fillStyle = '#ff8a5b';
+    // table number badge — light badge with black text for strong contrast
+    ctx2d.fillStyle = '#fff4dc';
+    ctx2d.strokeStyle = '#ff8a5b';
+    ctx2d.lineWidth = 3 * SCALE;
     ctx2d.beginPath();
-    ctx2d.arc(22, 8, 16, 0, Math.PI * 2);
+    ctx2d.arc(22 * SCALE, 8 * SCALE, 16 * SCALE, 0, Math.PI * 2);
     ctx2d.fill();
-    ctx2d.fillStyle = '#fff';
-    ctx2d.font = 'bold 18px sans-serif';
-    ctx2d.fillText(String(state.currentProblem ? state.currentProblem.a : ''), 22, 9);
+    ctx2d.stroke();
+    ctx2d.fillStyle = '#000';
+    ctx2d.font = 'bold ' + (18 * SCALE) + 'px sans-serif';
+    ctx2d.fillText(String(state.currentProblem ? state.currentProblem.a : ''), 22 * SCALE, 9 * SCALE);
+    ctx2d.restore();
+  }
+
+  // Draws a little drawstring bag: purple top half, green bottom half, a
+  // drawn handle loop, and a cinch tie — reads clearly as "purple and green
+  // bag" regardless of which emoji font the device has.
+  function drawBag(cx, cy, scale, alpha) {
+    ctx2d.save();
+    ctx2d.translate(cx, cy);
+    ctx2d.scale(scale, scale);
+    ctx2d.globalAlpha = alpha;
+
+    const w = 34, h = 30;
+
+    // handle
+    ctx2d.strokeStyle = '#6b4423';
+    ctx2d.lineWidth = 2.5;
+    ctx2d.beginPath();
+    ctx2d.arc(0, -h / 2 - 4, 9, Math.PI, 0);
+    ctx2d.stroke();
+
+    // bag body, clipped so top is purple and bottom is green
+    ctx2d.save();
+    ctx2d.beginPath();
+    ctx2d.moveTo(-w / 2, -h / 2);
+    ctx2d.quadraticCurveTo(-w / 2 - 4, h / 2, 0, h / 2 + 4);
+    ctx2d.quadraticCurveTo(w / 2 + 4, h / 2, w / 2, -h / 2);
+    ctx2d.closePath();
+    ctx2d.clip();
+
+    ctx2d.fillStyle = '#9b59b6';
+    ctx2d.fillRect(-w, -h, w * 2, h + 6);
+    ctx2d.fillStyle = '#4caf50';
+    ctx2d.fillRect(-w, 0, w * 2, h);
+    ctx2d.restore();
+
+    // cinch tie across the middle
+    ctx2d.strokeStyle = '#fff';
+    ctx2d.lineWidth = 2;
+    ctx2d.beginPath();
+    ctx2d.moveTo(-w / 2 + 2, -1);
+    ctx2d.lineTo(w / 2 - 2, -1);
+    ctx2d.stroke();
+
     ctx2d.restore();
   }
 
@@ -579,33 +632,18 @@
       const dur = 700;
       const p = Math.min(elapsed / dur, 1);
       ctx2d.save();
-      ctx2d.translate(px, py);
       if (p < 0.5) {
         // poop shrinking
         const s = 1 - (p / 0.5) * 0.6;
         ctx2d.globalAlpha = 1 - p / 0.5 * 0.3;
-        ctx2d.font = (48 * s) + 'px serif';
+        ctx2d.font = (48 * s * SCALE) + 'px serif';
         ctx2d.textAlign = 'center';
         ctx2d.textBaseline = 'middle';
-        ctx2d.fillText('💩', 0, 0);
+        ctx2d.fillText('💩', px, py);
       } else {
-        // morph into bag, then fade
+        // a hand (represented simply) whisks it away in a purple/green bag
         const bp = (p - 0.5) / 0.5;
-        ctx2d.globalAlpha = 1 - bp;
-        ctx2d.font = (40 + bp * 10) + 'px serif';
-        ctx2d.textAlign = 'center';
-        ctx2d.textBaseline = 'middle';
-        ctx2d.fillText('👜', 0, -bp * 20);
-        // purple/green shimmer
-        ctx2d.globalAlpha = (1 - bp) * 0.5;
-        ctx2d.fillStyle = '#9b59b6';
-        ctx2d.beginPath();
-        ctx2d.arc(-14, 10 - bp * 20, 5, 0, Math.PI * 2);
-        ctx2d.fill();
-        ctx2d.fillStyle = '#4caf50';
-        ctx2d.beginPath();
-        ctx2d.arc(14, 10 - bp * 20, 5, 0, Math.PI * 2);
-        ctx2d.fill();
+        drawBag(px, py - bp * 30 * SCALE, SCALE * (0.9 + bp * 0.3), 1 - bp);
       }
       ctx2d.restore();
       if (p >= 1) {
@@ -618,19 +656,22 @@
     // normal poop with problem text
     ctx2d.save();
     ctx2d.translate(px, py);
-    const wobble = Math.sin(t / 500) * 2;
+    const wobble = Math.sin(t / 500) * 2 * SCALE;
     ctx2d.translate(0, wobble);
-    ctx2d.font = '54px serif';
+    ctx2d.font = (54 * SCALE) + 'px serif';
     ctx2d.textAlign = 'center';
     ctx2d.textBaseline = 'middle';
     ctx2d.fillText('💩', 0, 0);
-    ctx2d.fillStyle = '#fff';
-    ctx2d.strokeStyle = 'rgba(0,0,0,0.35)';
-    ctx2d.lineWidth = 3;
-    ctx2d.font = 'bold 17px sans-serif';
+    // problem label: black text with a white outline reads clearly against
+    // both the sky and the grass
+    ctx2d.fillStyle = '#000';
+    ctx2d.strokeStyle = '#fff';
+    ctx2d.lineWidth = 4 * SCALE;
+    ctx2d.lineJoin = 'round';
+    ctx2d.font = 'bold ' + (19 * SCALE) + 'px sans-serif';
     const label = `${state.currentProblem.a} × ${state.currentProblem.b} = ?`;
-    ctx2d.strokeText(label, 0, -46);
-    ctx2d.fillText(label, 0, -46);
+    ctx2d.strokeText(label, 0, -46 * SCALE);
+    ctx2d.fillText(label, 0, -46 * SCALE);
     ctx2d.restore();
   }
 
