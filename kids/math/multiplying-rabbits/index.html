@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Multiplying Rabbits</title>
+<style>
+  :root {
+    --sky-top: #8ec9f0;
+    --sky-bottom: #cdeaff;
+    --grass: #7fc25c;
+    --grass-dark: #6bb04a;
+    --purple: #9b59b6;
+    --green: #4caf50;
+    --brown: #8b5a2b;
+    --brown-dark: #6b4423;
+    --accent: #ff8a5b;
+    --accent-dark: #e8703f;
+    --ink: #3a2e1f;
+    --card-bg: #fffaf0;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: 'Comic Sans MS', 'Chalkboard SE', 'Segoe UI', sans-serif;
+    background: linear-gradient(180deg, #ffe9c7, #ffd9a0);
+    color: var(--ink);
+    overflow-x: hidden;
+  }
+
+  button {
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    outline: none;
+  }
+
+  .hidden { display: none !important; }
+
+  .screen {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px;
+    position: relative;
+  }
+
+  /* ---------- Mute button ---------- */
+  .mute-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--card-bg);
+    font-size: 22px;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.15);
+    z-index: 20;
+  }
+  .mute-btn:active { transform: translateY(2px); box-shadow: none; }
+
+  /* ---------- Start screen ---------- */
+  #start-screen h1 {
+    font-size: clamp(28px, 6vw, 44px);
+    margin: 50px 0 8px;
+    color: var(--accent-dark);
+    text-shadow: 2px 2px 0 #fff;
+    text-align: center;
+  }
+  .instructions {
+    text-align: center;
+    font-size: clamp(14px, 3vw, 18px);
+    max-width: 420px;
+    margin: 0 0 24px;
+  }
+  #level-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    max-width: 480px;
+    width: 100%;
+  }
+  .level-btn {
+    aspect-ratio: 1;
+    border-radius: 16px;
+    background: var(--card-bg);
+    box-shadow: 0 4px 0 rgba(0,0,0,0.15);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: bold;
+    gap: 4px;
+    transition: transform 0.1s;
+  }
+  .level-btn .icon { font-size: clamp(22px, 5vw, 30px); }
+  .level-btn:active:not(.locked) { transform: translateY(3px); box-shadow: none; }
+  .level-btn.locked { background: #e2ddd2; color: #9a9384; cursor: not-allowed; }
+  .level-btn.unlocked { background: #fff2d9; border: 2px solid var(--accent); }
+  .level-btn.completed { background: #fff9e0; border: 2px solid gold; }
+
+  #reset-btn {
+    margin-top: 28px;
+    background: #f4d0d0;
+    color: #a33;
+    padding: 10px 20px;
+    border-radius: 10px;
+    font-size: 14px;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.12);
+  }
+
+  /* ---------- Game screen ---------- */
+  #game-screen { padding-top: 8px; width: 100%; align-items: stretch; }
+  #hud {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 640px;
+    margin: 0 auto;
+    width: 100%;
+    padding: 8px 8px 0;
+    font-weight: bold;
+    font-size: clamp(13px, 2.6vw, 16px);
+  }
+  #timer.low { color: #d33; }
+  #meadow-wrap {
+    max-width: 640px;
+    width: 100%;
+    margin: 8px auto;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+    position: relative;
+  }
+  #meadow-canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    touch-action: manipulation;
+  }
+
+  #answer-row {
+    max-width: 640px;
+    width: 100%;
+    margin: 4px auto 10px;
+    display: flex;
+    justify-content: center;
+  }
+  #answer-display {
+    font-size: clamp(22px, 5vw, 30px);
+    text-align: center;
+    width: 160px;
+    padding: 8px;
+    border-radius: 12px;
+    border: 3px solid var(--accent);
+    background: #fff;
+    letter-spacing: 3px;
+    font-weight: bold;
+    color: var(--ink);
+  }
+  #answer-display.flash-wrong { animation: shakeFlash 0.4s; }
+  @keyframes shakeFlash {
+    0%,100% { transform: translateX(0); background:#fff; }
+    20% { transform: translateX(-8px); background:#ffd6d6; }
+    40% { transform: translateX(8px); }
+    60% { transform: translateX(-6px); }
+    80% { transform: translateX(6px); }
+  }
+
+  #numpad {
+    max-width: 320px;
+    width: 100%;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    padding-bottom: 20px;
+  }
+  #numpad button {
+    min-height: 52px;
+    font-size: 20px;
+    font-weight: bold;
+    border-radius: 12px;
+    background: var(--card-bg);
+    box-shadow: 0 4px 0 rgba(0,0,0,0.15);
+    color: var(--ink);
+  }
+  #numpad button:active { transform: translateY(3px); box-shadow: none; }
+  #numpad button.enter-key { background: var(--green); color: #fff; }
+  #numpad button.clear-key { background: var(--accent); color: #fff; }
+
+  /* ---------- Message overlay ---------- */
+  #message-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    padding: 16px;
+  }
+  .message-card {
+    background: var(--card-bg);
+    border-radius: 20px;
+    padding: 28px 24px;
+    max-width: 360px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  }
+  .message-card h2 { margin: 0 0 10px; font-size: 24px; color: var(--accent-dark); }
+  .message-card p { margin: 0 0 20px; font-size: 16px; }
+  #message-buttons { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  #message-buttons button {
+    padding: 12px 18px;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: bold;
+    box-shadow: 0 3px 0 rgba(0,0,0,0.15);
+  }
+  .btn-primary { background: var(--green); color: #fff; }
+  .btn-secondary { background: #e4dfd4; color: var(--ink); }
+
+  /* ---------- Reset modal ---------- */
+  #reset-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 60;
+    padding: 16px;
+  }
+  #reset-modal .message-card p { font-size: 15px; }
+
+  /* ---------- Diploma ---------- */
+  #diploma-screen { align-items: center; }
+  .diploma-card {
+    background: var(--card-bg);
+    border: 8px solid gold;
+    border-radius: 16px;
+    max-width: 460px;
+    width: 100%;
+    padding: 28px 20px;
+    text-align: center;
+    margin-top: 30px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  }
+  .diploma-poop { font-size: 70px; margin-bottom: 6px; }
+  .diploma-card h2 { color: var(--accent-dark); margin: 6px 0; }
+  .diploma-field { margin: 10px 0; font-size: 15px; }
+  .diploma-field input {
+    font-size: 16px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border: 2px solid var(--accent);
+    text-align: center;
+    width: 200px;
+  }
+  .diploma-stars { font-size: 22px; letter-spacing: 3px; margin: 14px 0; }
+  .diploma-buttons { display: flex; gap: 10px; justify-content: center; margin-top: 14px; }
+
+  @media print {
+    body * { visibility: hidden; }
+    #diploma-screen, #diploma-screen * { visibility: visible; }
+    #diploma-screen { position: absolute; top: 0; left: 0; width: 100%; }
+    .diploma-buttons, .mute-btn { display: none !important; }
+  }
+
+  /* ---------- Responsive ---------- */
+  @media (min-width: 600px) and (max-width: 900px) {
+    #level-grid { max-width: 560px; }
+  }
+  @media (min-width: 900px) {
+    #level-grid { max-width: 600px; }
+    #numpad { max-width: 360px; }
+  }
+</style>
+</head>
+<body>
+
+  <!-- ========== Start Screen ========== -->
+  <div id="start-screen" class="screen">
+    <button id="mute-btn-start" class="mute-btn">🔊</button>
+    <h1>Multiplying Rabbits</h1>
+    <p class="instructions">Help the bunny poop 10 times by solving math problems! 🐰💩</p>
+    <div id="level-grid"></div>
+    <button id="reset-btn">Reset Progress</button>
+  </div>
+
+  <!-- ========== Game Screen ========== -->
+  <div id="game-screen" class="screen hidden">
+    <button id="mute-btn-game" class="mute-btn">🔊</button>
+    <div id="hud">
+      <span id="timer">10:00</span>
+      <span id="level-info">Level 1 - 1× Table</span>
+      <span id="score">Poops: 0/10</span>
+    </div>
+    <div id="meadow-wrap">
+      <canvas id="meadow-canvas" width="640" height="360"></canvas>
+    </div>
+    <div id="answer-row">
+      <input id="answer-display" readonly value="">
+    </div>
+    <div id="numpad">
+      <button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button>
+      <button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button>
+      <button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button>
+      <button data-key="clear" class="clear-key">⌫</button>
+      <button data-key="0">0</button>
+      <button data-key="enter" class="enter-key">↵</button>
+    </div>
+  </div>
+
+  <!-- ========== Message Overlay ========== -->
+  <div id="message-overlay" class="hidden">
+    <div class="message-card">
+      <h2 id="message-title"></h2>
+      <p id="message-body"></p>
+      <div id="message-buttons"></div>
+    </div>
+  </div>
+
+  <!-- ========== Diploma Screen ========== -->
+  <div id="diploma-screen" class="screen hidden">
+    <div class="diploma-card">
+      <div class="diploma-poop">💩</div>
+      <h2>Certificate of Multiplication Mastery</h2>
+      <div class="diploma-field">
+        Name: <input id="diploma-name" type="text" placeholder="Type your name">
+      </div>
+      <div class="diploma-field">Date: <span id="diploma-date"></span></div>
+      <p>Good job! 🐰💩</p>
+      <div class="diploma-stars">⭐⭐⭐⭐⭐⭐⭐⭐⭐⭐</div>
+      <div class="diploma-buttons">
+        <button class="btn-primary" id="diploma-print">Print</button>
+        <button class="btn-secondary" id="diploma-menu">Menu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== Reset Confirmation Modal ========== -->
+  <div id="reset-modal" class="hidden">
+    <div class="message-card">
+      <h2>Wait!</h2>
+      <p>Really reset? You'll lose your completed levels!</p>
+      <div id="message-buttons">
+        <button class="btn-secondary" id="reset-cancel">No</button>
+        <button class="btn-primary" id="reset-confirm">Yes</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* =========================================================
+     CONFIG
+  ========================================================= */
+  const LEVELS = {
+    1: { tables: [1], label: '1× Table' },
+    2: { tables: [2], label: '2× Table' },
+    3: { tables: [3], label: '3× Table' },
+    4: { tables: [4], label: '4× Table' },
+    5: { tables: [5], label: '5× Table' },
+    6: { tables: [6], label: '6× Table' },
+    7: { tables: [7], label: '7× Table' },
+    8: { tables: [8], label: '8× Table' },
+    9: { tables: [1, 2, 3, 4, 5], label: 'Mixed 1-5' },
+    10: { tables: [1, 2, 3, 4, 5, 6, 7, 8], label: 'Mixed 1-8' }
+  };
+  const TOTAL_LEVELS = 10;
+  const POOPS_PER_LEVEL = 10;
+  const LEVEL_TIME_SECONDS = 600; // 10 minutes
+
+  const STORAGE_KEYS = {
+    completed: 'multiplying-rabbits-completed',
+    name: 'multiplying-rabbits-name',
+    muted: 'multiplying-rabbits-muted'
+  };
+
+  /* =========================================================
+     STORAGE (wrapped in try/catch — degrades gracefully)
+  ========================================================= */
+  function loadJSON(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch (e) { return fallback; }
+  }
+  function saveJSON(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* silent */ }
+  }
+  function loadRaw(key, fallback) {
+    try {
+      const v = localStorage.getItem(key);
+      return v === null ? fallback : v;
+    } catch (e) { return fallback; }
+  }
+  function saveRaw(key, value) {
+    try { localStorage.setItem(key, value); } catch (e) { /* silent */ }
+  }
+
+  /* =========================================================
+     STATE
+  ========================================================= */
+  const state = {
+    currentLevel: 1,
+    currentPoop: 0,
+    timeRemaining: LEVEL_TIME_SECONDS,
+    currentProblem: null,
+    lastProblemKey: null,
+    timerInterval: null,
+    isMuted: loadRaw(STORAGE_KEYS.muted, 'false') === 'true',
+    answerInput: '',
+    levelsCompleted: loadJSON(STORAGE_KEYS.completed, []),
+    playerName: loadRaw(STORAGE_KEYS.name, ''),
+    animating: false
+  };
+
+  /* =========================================================
+     AUDIO (synthesized tones — no external files needed)
+  ========================================================= */
+  let audioCtx = null;
+  function getAudioCtx() {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) audioCtx = new AC();
+    }
+    return audioCtx;
+  }
+  function playTone(freq, startTime, duration, type, gainPeak) {
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, ctx.currentTime + startTime);
+    gain.gain.linearRampToValueAtTime(gainPeak || 0.15, ctx.currentTime + startTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + startTime + duration);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(ctx.currentTime + startTime);
+    osc.stop(ctx.currentTime + startTime + duration + 0.02);
+  }
+  function sound(name) {
+    if (state.isMuted) return;
+    const ctx = getAudioCtx();
+    if (!ctx) return;
+    if (ctx.state === 'suspended') ctx.resume();
+    switch (name) {
+      case 'correct':
+        playTone(523.25, 0, 0.12, 'triangle');
+        playTone(783.99, 0.1, 0.18, 'triangle');
+        break;
+      case 'wrong':
+        playTone(220, 0, 0.25, 'sine', 0.08);
+        break;
+      case 'poopAppear':
+        playTone(660, 0, 0.06, 'square', 0.06);
+        break;
+      case 'levelComplete':
+        [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => playTone(f, i * 0.12, 0.18, 'triangle'));
+        break;
+      case 'timeUp':
+        playTone(392, 0, 0.3, 'sine', 0.1);
+        playTone(329.63, 0.25, 0.35, 'sine', 0.1);
+        break;
+      case 'diploma':
+        [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => playTone(f, i * 0.1, 0.25, 'triangle'));
+        break;
+    }
+  }
+
+  function setMuted(muted) {
+    state.isMuted = muted;
+    saveRaw(STORAGE_KEYS.muted, String(muted));
+    const icon = muted ? '🔇' : '🔊';
+    document.getElementById('mute-btn-start').textContent = icon;
+    document.getElementById('mute-btn-game').textContent = icon;
+  }
+
+  /* =========================================================
+     CANVAS RENDERING (meadow: bunny + poop + bag animation)
+  ========================================================= */
+  const canvas = document.getElementById('meadow-canvas');
+  const ctx2d = canvas.getContext('2d');
+  const CW = canvas.width, CH = canvas.height;
+
+  // Static-ish scene elements (flowers), regenerated per level for variety
+  let flowers = [];
+  function generateFlowers() {
+    flowers = [];
+    const colors = ['#ff6fae', '#ffd166', '#f4f4f4', '#ff8a5b'];
+    for (let i = 0; i < 8; i++) {
+      flowers.push({
+        x: 20 + Math.random() * (CW - 40),
+        y: CH * 0.62 + Math.random() * (CH * 0.33),
+        color: colors[Math.floor(Math.random() * colors.length)]
+      });
+    }
+  }
+
+  function drawScene(t) {
+    // sky
+    const skyGrad = ctx2d.createLinearGradient(0, 0, 0, CH * 0.6);
+    skyGrad.addColorStop(0, '#8ec9f0');
+    skyGrad.addColorStop(1, '#cdeaff');
+    ctx2d.fillStyle = skyGrad;
+    ctx2d.fillRect(0, 0, CW, CH * 0.6);
+
+    // sun
+    ctx2d.fillStyle = '#fff6c9';
+    ctx2d.beginPath();
+    ctx2d.arc(CW - 70, 60, 34, 0, Math.PI * 2);
+    ctx2d.fill();
+
+    // grass
+    const grassGrad = ctx2d.createLinearGradient(0, CH * 0.58, 0, CH);
+    grassGrad.addColorStop(0, '#8fd06a');
+    grassGrad.addColorStop(1, '#6bb04a');
+    ctx2d.fillStyle = grassGrad;
+    ctx2d.fillRect(0, CH * 0.58, CW, CH * 0.42);
+
+    // flowers
+    flowers.forEach(f => {
+      ctx2d.fillStyle = f.color;
+      for (let a = 0; a < 5; a++) {
+        const ang = (a / 5) * Math.PI * 2;
+        ctx2d.beginPath();
+        ctx2d.arc(f.x + Math.cos(ang) * 5, f.y + Math.sin(ang) * 5, 4, 0, Math.PI * 2);
+        ctx2d.fill();
+      }
+      ctx2d.fillStyle = '#ffd166';
+      ctx2d.beginPath();
+      ctx2d.arc(f.x, f.y, 3, 0, Math.PI * 2);
+      ctx2d.fill();
+    });
+  }
+
+  function drawBunny(t) {
+    const bx = CW * 0.2, by = CH * 0.55;
+    const bounce = Math.sin(t / 400) * 5;
+    ctx2d.save();
+    ctx2d.translate(bx, by + bounce);
+    ctx2d.font = '72px serif';
+    ctx2d.textAlign = 'center';
+    ctx2d.textBaseline = 'middle';
+    ctx2d.fillText('🐰', 0, 0);
+    // table number badge
+    ctx2d.fillStyle = 'var-accent';
+    ctx2d.fillStyle = '#ff8a5b';
+    ctx2d.beginPath();
+    ctx2d.arc(22, 8, 16, 0, Math.PI * 2);
+    ctx2d.fill();
+    ctx2d.fillStyle = '#fff';
+    ctx2d.font = 'bold 18px sans-serif';
+    ctx2d.fillText(String(state.currentProblem ? state.currentProblem.a : ''), 22, 9);
+    ctx2d.restore();
+  }
+
+  function drawPoop(t) {
+    const px = CW * 0.62, py = CH * 0.62;
+    if (!state.currentProblem) return;
+
+    if (state.animating) {
+      const elapsed = performance.now() - state.animStart;
+      const dur = 700;
+      const p = Math.min(elapsed / dur, 1);
+      ctx2d.save();
+      ctx2d.translate(px, py);
+      if (p < 0.5) {
+        // poop shrinking
+        const s = 1 - (p / 0.5) * 0.6;
+        ctx2d.globalAlpha = 1 - p / 0.5 * 0.3;
+        ctx2d.font = (48 * s) + 'px serif';
+        ctx2d.textAlign = 'center';
+        ctx2d.textBaseline = 'middle';
+        ctx2d.fillText('💩', 0, 0);
+      } else {
+        // morph into bag, then fade
+        const bp = (p - 0.5) / 0.5;
+        ctx2d.globalAlpha = 1 - bp;
+        ctx2d.font = (40 + bp * 10) + 'px serif';
+        ctx2d.textAlign = 'center';
+        ctx2d.textBaseline = 'middle';
+        ctx2d.fillText('👜', 0, -bp * 20);
+        // purple/green shimmer
+        ctx2d.globalAlpha = (1 - bp) * 0.5;
+        ctx2d.fillStyle = '#9b59b6';
+        ctx2d.beginPath();
+        ctx2d.arc(-14, 10 - bp * 20, 5, 0, Math.PI * 2);
+        ctx2d.fill();
+        ctx2d.fillStyle = '#4caf50';
+        ctx2d.beginPath();
+        ctx2d.arc(14, 10 - bp * 20, 5, 0, Math.PI * 2);
+        ctx2d.fill();
+      }
+      ctx2d.restore();
+      if (p >= 1) {
+        state.animating = false;
+        onAnimationComplete();
+      }
+      return;
+    }
+
+    // normal poop with problem text
+    ctx2d.save();
+    ctx2d.translate(px, py);
+    const wobble = Math.sin(t / 500) * 2;
+    ctx2d.translate(0, wobble);
+    ctx2d.font = '54px serif';
+    ctx2d.textAlign = 'center';
+    ctx2d.textBaseline = 'middle';
+    ctx2d.fillText('💩', 0, 0);
+    ctx2d.fillStyle = '#fff';
+    ctx2d.strokeStyle = 'rgba(0,0,0,0.35)';
+    ctx2d.lineWidth = 3;
+    ctx2d.font = 'bold 17px sans-serif';
+    const label = `${state.currentProblem.a} × ${state.currentProblem.b} = ?`;
+    ctx2d.strokeText(label, 0, -46);
+    ctx2d.fillText(label, 0, -46);
+    ctx2d.restore();
+  }
+
+  function renderLoop(t) {
+    ctx2d.clearRect(0, 0, CW, CH);
+    drawScene(t);
+    drawBunny(t);
+    drawPoop(t);
+    requestAnimationFrame(renderLoop);
+  }
+  requestAnimationFrame(renderLoop);
+
+  /* =========================================================
+     GAME LOGIC
+  ========================================================= */
+  function generateProblem(level) {
+    const tables = LEVELS[level].tables;
+    let attempt, key;
+    do {
+      const table = tables[Math.floor(Math.random() * tables.length)];
+      const multiplier = Math.floor(Math.random() * 12) + 1;
+      attempt = { a: table, b: multiplier, answer: table * multiplier };
+      key = attempt.a + 'x' + attempt.b;
+    } while (key === state.lastProblemKey && tables.length * 12 > 1);
+    state.lastProblemKey = key;
+    return attempt;
+  }
+
+  function startLevel(levelNum) {
+    state.currentLevel = levelNum;
+    state.currentPoop = 0;
+    state.timeRemaining = LEVEL_TIME_SECONDS;
+    state.lastProblemKey = null;
+    state.currentProblem = generateProblem(levelNum);
+    state.answerInput = '';
+    state.animating = false;
+    generateFlowers();
+    updateHUD();
+    updateAnswerDisplay();
+    showScreen('game-screen');
+    sound('poopAppear');
+    startTimer();
+  }
+
+  function startTimer() {
+    stopTimer();
+    state.timerInterval = setInterval(() => {
+      state.timeRemaining--;
+      updateTimerDisplay();
+      if (state.timeRemaining <= 0) {
+        stopTimer();
+        onTimeUp();
+      }
+    }, 1000);
+  }
+  function stopTimer() {
+    if (state.timerInterval) { clearInterval(state.timerInterval); state.timerInterval = null; }
+  }
+
+  function updateHUD() {
+    document.getElementById('level-info').textContent = `Level ${state.currentLevel} - ${LEVELS[state.currentLevel].label}`;
+    document.getElementById('score').textContent = `Poops: ${state.currentPoop}/${POOPS_PER_LEVEL}`;
+    updateTimerDisplay();
+  }
+  function updateTimerDisplay() {
+    const m = Math.floor(state.timeRemaining / 60);
+    const s = state.timeRemaining % 60;
+    const el = document.getElementById('timer');
+    el.textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    el.classList.toggle('low', state.timeRemaining <= 30);
+  }
+
+  function updateAnswerDisplay() {
+    document.getElementById('answer-display').value = state.answerInput;
+  }
+
+  function pressKey(key) {
+    if (state.animating) return;
+    if (key === 'clear') {
+      state.answerInput = '';
+    } else if (key === 'enter') {
+      submitAnswer();
+      return;
+    } else {
+      if (state.answerInput.length < 3) state.answerInput += key;
+    }
+    updateAnswerDisplay();
+  }
+
+  function submitAnswer() {
+    if (!state.currentProblem || state.animating) return;
+    if (state.answerInput === '') return;
+    const val = parseInt(state.answerInput, 10);
+    if (val === state.currentProblem.answer) {
+      onCorrectAnswer();
+    } else {
+      onWrongAnswer();
+    }
+  }
+
+  function onCorrectAnswer() {
+    sound('correct');
+    state.currentPoop++;
+    updateHUD();
+    state.answerInput = '';
+    updateAnswerDisplay();
+    state.animating = true;
+    state.animStart = performance.now();
+  }
+
+  function onAnimationComplete() {
+    if (state.currentPoop >= POOPS_PER_LEVEL) {
+      onLevelComplete();
+    } else {
+      state.currentProblem = generateProblem(state.currentLevel);
+      sound('poopAppear');
+    }
+  }
+
+  function onWrongAnswer() {
+    sound('wrong');
+    const el = document.getElementById('answer-display');
+    el.classList.remove('flash-wrong');
+    void el.offsetWidth; // restart animation
+    el.classList.add('flash-wrong');
+    state.answerInput = '';
+    updateAnswerDisplay();
+  }
+
+  function onLevelComplete() {
+    stopTimer();
+    if (!state.levelsCompleted.includes(state.currentLevel)) {
+      state.levelsCompleted.push(state.currentLevel);
+      saveJSON(STORAGE_KEYS.completed, state.levelsCompleted);
+    }
+    sound('levelComplete');
+    const isLast = state.currentLevel === TOTAL_LEVELS;
+    showMessage(
+      'Level Complete!',
+      `You finished the ${LEVELS[state.currentLevel].label}! 🐰💩`,
+      isLast
+        ? [
+            { label: 'View Diploma', primary: true, action: showDiploma },
+            { label: 'Return to Menu', primary: false, action: () => showScreen('start-screen') }
+          ]
+        : [
+            { label: 'Next Level', primary: true, action: () => startLevel(state.currentLevel + 1) },
+            { label: 'Return to Menu', primary: false, action: () => showScreen('start-screen') }
+          ]
+    );
+    renderLevelGrid();
+  }
+
+  function onTimeUp() {
+    sound('timeUp');
+    showMessage(
+      "Time's up!",
+      "No worries — let's try this level again with fresh problems!",
+      [
+        { label: 'Retry Level', primary: true, action: () => startLevel(state.currentLevel) },
+        { label: 'Go to Menu', primary: false, action: () => showScreen('start-screen') }
+      ]
+    );
+  }
+
+  /* =========================================================
+     UI: screens, messages, level grid
+  ========================================================= */
+  const SCREEN_IDS = ['start-screen', 'game-screen', 'diploma-screen'];
+  function showScreen(id) {
+    stopTimer();
+    hideMessage();
+    SCREEN_IDS.forEach(s => document.getElementById(s).classList.add('hidden'));
+    document.getElementById(id).classList.remove('hidden');
+    if (id === 'start-screen') renderLevelGrid();
+  }
+
+  function showMessage(title, body, buttons) {
+    document.getElementById('message-title').textContent = title;
+    document.getElementById('message-body').textContent = body;
+    const btnContainer = document.getElementById('message-buttons');
+    btnContainer.innerHTML = '';
+    buttons.forEach(b => {
+      const btn = document.createElement('button');
+      btn.textContent = b.label;
+      btn.className = b.primary ? 'btn-primary' : 'btn-secondary';
+      if (b.disabled) { btn.disabled = true; btn.style.opacity = 0.5; }
+      btn.addEventListener('click', () => { hideMessage(); b.action(); });
+      btnContainer.appendChild(btn);
+    });
+    document.getElementById('message-overlay').classList.remove('hidden');
+  }
+  function hideMessage() {
+    document.getElementById('message-overlay').classList.add('hidden');
+  }
+
+  function getLevelState(levelNum) {
+    if (state.levelsCompleted.includes(levelNum)) return 'completed';
+    if (levelNum === 1 || state.levelsCompleted.includes(levelNum - 1)) return 'unlocked';
+    return 'locked';
+  }
+
+  function renderLevelGrid() {
+    const grid = document.getElementById('level-grid');
+    grid.innerHTML = '';
+    for (let i = 1; i <= TOTAL_LEVELS; i++) {
+      const st = getLevelState(i);
+      const btn = document.createElement('button');
+      btn.className = `level-btn ${st}`;
+      const icon = st === 'locked' ? '🔒' : (st === 'completed' ? '⭐' : '🐰');
+      btn.innerHTML = `<span class="icon">${icon}</span><span>Lvl ${i}</span>`;
+      if (st !== 'locked') {
+        btn.addEventListener('click', () => startLevel(i));
+      }
+      grid.appendChild(btn);
+    }
+  }
+
+  function showDiploma() {
+    document.getElementById('diploma-date').textContent = new Date().toLocaleDateString();
+    const nameInput = document.getElementById('diploma-name');
+    nameInput.value = state.playerName || '';
+    sound('diploma');
+    showScreen('diploma-screen');
+  }
+
+  /* =========================================================
+     EVENT WIRING
+  ========================================================= */
+  document.getElementById('numpad').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    pressKey(btn.dataset.key);
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (document.getElementById('game-screen').classList.contains('hidden')) return;
+    if (e.key >= '0' && e.key <= '9') pressKey(e.key);
+    else if (e.key === 'Enter') pressKey('enter');
+    else if (e.key === 'Backspace') pressKey('clear');
+  });
+
+  ['mute-btn-start', 'mute-btn-game'].forEach(id => {
+    document.getElementById(id).addEventListener('click', () => setMuted(!state.isMuted));
+  });
+
+  document.getElementById('reset-btn').addEventListener('click', () => {
+    document.getElementById('reset-modal').classList.remove('hidden');
+  });
+  document.getElementById('reset-cancel').addEventListener('click', () => {
+    document.getElementById('reset-modal').classList.add('hidden');
+  });
+  document.getElementById('reset-confirm').addEventListener('click', () => {
+    state.levelsCompleted = [];
+    saveJSON(STORAGE_KEYS.completed, []);
+    document.getElementById('reset-modal').classList.add('hidden');
+    renderLevelGrid();
+  });
+
+  document.getElementById('diploma-name').addEventListener('input', (e) => {
+    state.playerName = e.target.value;
+    saveRaw(STORAGE_KEYS.name, state.playerName);
+  });
+  document.getElementById('diploma-print').addEventListener('click', () => window.print());
+  document.getElementById('diploma-menu').addEventListener('click', () => showScreen('start-screen'));
+
+  /* =========================================================
+     INIT
+  ========================================================= */
+  function init() {
+    setMuted(state.isMuted);
+    generateFlowers();
+    renderLevelGrid();
+    showScreen('start-screen');
+  }
+  init();
+})();
+</script>
+</body>
+</html>
