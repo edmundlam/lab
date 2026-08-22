@@ -817,18 +817,40 @@
      the design notes: seen/correct give lifetime accuracy, ema
      gives a recency-weighted "how well right now" score used to
      color the heat map, streak + last support future features
-     (spaced repetition, "mastered" badges) without needing a
-     full attempt log.
+     (spaced repetition, "mastered" badges), and avgTimeMs tracks
+     mean time-to-answer (across ALL attempts on that fact, correct
+     or not) as a running incremental mean — no attempt log needed.
   ========================================================= */
   const EMA_ALPHA = 0.3;
+  const COLD_START_FAST_MS = 4000; // baseline "fast" cutoff before a fact has its own history
 
   function factKey(a, b) {
     return Math.min(a, b) + '-' + Math.max(a, b);
   }
 
-  function recordFactAttempt(a, b, score, firstTry) {
+  // elapsedMs: time from problem shown to this correct answer (includes any
+  // wrong tries in between). wrongTries: how many wrong guesses preceded it.
+  function recordFactAttempt(a, b, elapsedMs, wrongTries) {
     const key = factKey(a, b);
-    const rec = state.facts[key] || { seen: 0, correct: 0, ema: 0, streak: 0, last: 0 };
+    const rec = state.facts[key] || { seen: 0, correct: 0, ema: 0, streak: 0, last: 0, avgTimeMs: 0 };
+    const firstTry = wrongTries === 0;
+    const hasHistory = rec.seen > 0 && typeof rec.avgTimeMs === 'number';
+
+    let score;
+    if (!firstTry) {
+      score = wrongTries === 1 ? 0.5 : 0.2;
+    } else {
+      // "Fast" is judged against this fact's own average time so far, not a
+      // fixed global number — 7x8 taking 6s can be "fast for that fact" while
+      // 2x2 taking 6s would not be. Falls back to a generic baseline the
+      // first time a fact is seen, when there's no history to compare to.
+      const referenceTime = hasHistory ? rec.avgTimeMs : COLD_START_FAST_MS;
+      score = elapsedMs <= referenceTime ? 1.0 : 0.8;
+    }
+
+    rec.avgTimeMs = hasHistory
+      ? rec.avgTimeMs + (elapsedMs - rec.avgTimeMs) / (rec.seen + 1)
+      : elapsedMs;
     rec.ema = rec.seen === 0 ? score : (rec.ema * (1 - EMA_ALPHA) + score * EMA_ALPHA);
     rec.seen += 1;
     rec.correct += 1; // every problem here is eventually answered correctly
@@ -935,12 +957,7 @@
   function onCorrectAnswer() {
     sound('correct');
     const elapsed = performance.now() - state.problemStartTime;
-    const wrongTries = state.wrongAttemptsOnProblem;
-    let score;
-    if (wrongTries === 0) score = elapsed < 4000 ? 1.0 : 0.8;
-    else if (wrongTries === 1) score = 0.5;
-    else score = 0.2;
-    recordFactAttempt(state.currentProblem.a, state.currentProblem.b, score, wrongTries === 0);
+    recordFactAttempt(state.currentProblem.a, state.currentProblem.b, elapsed, state.wrongAttemptsOnProblem);
 
     state.currentPoop++;
     updateHUD();
@@ -1152,8 +1169,10 @@
       body = `<div>Not practiced yet.</div>`;
     } else {
       const pct = Math.round((rec.correct / rec.seen) * 100);
+      const avgSec = typeof rec.avgTimeMs === 'number' ? (rec.avgTimeMs / 1000).toFixed(1) : '—';
       body = `
         <div>Practiced ${rec.seen} time${rec.seen === 1 ? '' : 's'} · ${pct}% correct</div>
+        <div>Avg answer time: ${avgSec}s</div>
         <div>Current streak: ${rec.streak}</div>
         <div>Last practiced: ${timeAgo(rec.last)}</div>`;
     }
